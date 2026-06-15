@@ -1,0 +1,2061 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#f8f0e4" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Keepsake" />
+    <title>Keepsake · מזכרת</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon-192.png" type="image/png" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <script>
+      // Set lang/dir before first paint to avoid a flash of the wrong direction
+      (function () {
+        var saved = localStorage.getItem("keepsake-lang");
+        var lang = saved || ((navigator.language || "").toLowerCase().startsWith("he") ? "he" : "en");
+        document.documentElement.lang = lang;
+        document.documentElement.dir = lang === "he" ? "rtl" : "ltr";
+      })();
+    </script>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #26231f;
+        --muted: #746d63;
+        --paper: #f7f2ea;
+        --panel: #fffaf1;
+        --line: rgba(38, 35, 31, 0.14);
+        --shadow: 0 24px 70px rgba(40, 31, 20, 0.16);
+        --mood: #b9a16b;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body { overflow-x: hidden; background: #f8f0e4; }
+      body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--ink);
+        background:
+          linear-gradient(120deg, rgba(112, 145, 130, 0.24), transparent 42%),
+          radial-gradient(circle at 85% 14%, rgba(207, 125, 86, 0.2), transparent 26%),
+          linear-gradient(180deg, #f8f0e4 0%, #e8eee8 100%);
+      }
+
+      button, textarea, input { font: inherit; }
+
+      /* ── Animations ── */
+      @keyframes slideUp {
+        from { opacity: 0; transform: translateY(14px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes barGrow {
+        from { transform: scaleY(0); opacity: 0; }
+        to   { transform: scaleY(1); opacity: 1; }
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+      @keyframes moodPop {
+        0%   { transform: scale(1); }
+        45%  { transform: scale(1.06); }
+        100% { transform: scale(1); }
+      }
+      @keyframes savePulse {
+        0%   { box-shadow: 0 0 0 0 rgba(85,117,107,0.5); }
+        70%  { box-shadow: 0 0 0 10px rgba(85,117,107,0); }
+        100% { box-shadow: 0 0 0 0 rgba(85,117,107,0); }
+      }
+      @keyframes cloudSpin {
+        from { transform: rotate(0deg); }
+        to   { transform: rotate(360deg); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+      }
+
+      /* ── Layout ── */
+      .app-shell {
+        width: min(1180px, calc(100vw - 32px));
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.75fr);
+        gap: 24px;
+        align-items: start;
+        padding: 48px 0 32px;
+        animation: fadeIn 0.4s ease both;
+      }
+
+      .journal-panel, .memory-panel { min-width: 0; }
+
+      .journal-panel {
+        background: rgba(255, 250, 241, 0.82);
+        border: 1px solid rgba(255, 255, 255, 0.72);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(20px);
+        border-radius: 8px;
+        padding: clamp(22px, 4vw, 42px);
+        animation: slideUp 0.45s cubic-bezier(0.22,1,0.36,1) both;
+      }
+
+      .topbar, .month-header, .actions, .entry-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .edit-strip {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border: 1px solid rgba(85, 117, 107, 0.28);
+        border-radius: 8px;
+        padding: 12px 14px;
+        color: #455f57;
+        background: rgba(85, 117, 107, 0.1);
+        font-weight: 800;
+      }
+      .edit-strip[hidden] { display: none; }
+      .edit-strip button {
+        flex: 0 0 auto;
+        border: 1px solid rgba(85, 117, 107, 0.24);
+        border-radius: 999px;
+        padding: 8px 12px;
+        color: #455f57;
+        background: rgba(255, 255, 255, 0.46);
+        font-size: 0.82rem;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .eyebrow {
+        margin: 0 0 6px;
+        color: #8a654f;
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      h1, h2, h3, p { margin-top: 0; }
+      h1 {
+        margin-bottom: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(2.25rem, 7vw, 5.75rem);
+        font-weight: 500;
+        line-height: 0.92;
+        letter-spacing: 0;
+      }
+      h2 {
+        margin-bottom: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 2rem;
+        font-weight: 500;
+      }
+
+      .date-pill, .month-header > span {
+        flex: 0 0 auto;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 10px 14px;
+        color: var(--muted);
+        background: rgba(255, 255, 255, 0.44);
+        font-weight: 700;
+      }
+
+      /* ── Language toggle ── */
+      .topbar-actions {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
+      }
+      .lang-toggle {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 6px 14px;
+        color: var(--muted);
+        background: rgba(255, 255, 255, 0.46);
+        font-size: 0.78rem;
+        font-weight: 800;
+        cursor: pointer;
+        transition: transform 0.15s, background 0.2s;
+      }
+      .lang-toggle:hover { transform: translateY(-1px); background: rgba(255,255,255,0.66); }
+
+      /* ── Mood card ── */
+      .mood-card {
+        margin: 34px 0 26px;
+        padding: clamp(20px, 4vw, 34px);
+        border-radius: 8px;
+        color: #fffaf6;
+        background: linear-gradient(135deg, rgba(0,0,0,0.14), rgba(255,255,255,0.1)), var(--mood);
+        overflow: hidden;
+        position: relative;
+        transition: background 0.55s cubic-bezier(0.4, 0, 0.2, 1), --mood 0.55s;
+      }
+      .mood-card::after {
+        content: "";
+        position: absolute;
+        inset: auto -12% -42% 28%;
+        height: 70%;
+        background: rgba(255, 255, 255, 0.12);
+        transform: rotate(-8deg);
+        transition: opacity 0.4s;
+      }
+      [dir="rtl"] .mood-card::after {
+        inset: auto 28% -42% -12%;
+      }
+      .mood-card > * { position: relative; z-index: 1; }
+
+      .mood-readout {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 20px;
+      }
+
+      #moodWord {
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(2.1rem, 7vw, 5rem);
+        line-height: 0.95;
+        transition: opacity 0.18s;
+      }
+      #moodWord.is-changing { animation: moodPop 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+
+      #moodScore {
+        width: 72px;
+        height: 72px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        border: 1px solid rgba(255, 255, 255, 0.52);
+        background: rgba(255, 255, 255, 0.16);
+        font-size: 1.55rem;
+        transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1);
+      }
+      #moodScore.is-bumping { animation: moodPop 0.28s cubic-bezier(0.34,1.56,0.64,1); }
+
+      #moodHint {
+        width: min(520px, 100%);
+        margin: 16px 0 28px;
+        color: rgba(255, 250, 246, 0.86);
+        font-size: 1.05rem;
+        line-height: 1.55;
+        transition: opacity 0.22s;
+      }
+      #moodHint.fading { opacity: 0; }
+
+      /* ── Slider ── */
+      .slider-wrap { position: relative; padding-bottom: 24px; }
+
+      .mood-slider {
+        width: 100%;
+        appearance: none;
+        height: 34px;
+        margin: 0;
+        background: transparent;
+        cursor: pointer;
+      }
+      .mood-slider::-webkit-slider-runnable-track {
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.34);
+        transition: background 0.3s;
+      }
+      .mood-slider::-moz-range-track {
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.34);
+      }
+      .mood-slider::-webkit-slider-thumb {
+        appearance: none;
+        width: 34px;
+        height: 34px;
+        margin-top: -12px;
+        border-radius: 50%;
+        border: 5px solid #fffaf6;
+        background: var(--mood);
+        box-shadow: 0 8px 24px rgba(38, 35, 31, 0.22);
+        cursor: grab;
+        transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1);
+      }
+      .mood-slider:active::-webkit-slider-thumb { transform: scale(1.18); cursor: grabbing; }
+      .mood-slider::-moz-range-thumb {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: 5px solid #fffaf6;
+        background: var(--mood);
+        box-shadow: 0 8px 24px rgba(38, 35, 31, 0.22);
+        cursor: grab;
+      }
+
+      .slider-track-labels, .ticks { display: flex; justify-content: space-between; }
+      .slider-track-labels {
+        color: rgba(255, 250, 246, 0.76);
+        font-size: 0.88rem;
+        font-weight: 800;
+      }
+      .ticks {
+        position: absolute;
+        inset: 12px 13px auto 13px;
+        pointer-events: none;
+      }
+      .ticks span {
+        width: 2px;
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.44);
+      }
+
+
+      /* ── Entry form ── */
+      .entry-form { display: grid; gap: 20px; }
+
+      label span, legend {
+        display: block;
+        margin-bottom: 10px;
+        color: var(--muted);
+        font-weight: 800;
+      }
+
+      textarea {
+        width: 100%;
+        resize: vertical;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 16px;
+        color: var(--ink);
+        background: rgba(255, 255, 255, 0.54);
+        line-height: 1.5;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+      }
+      textarea:focus {
+        border-color: rgba(85, 117, 107, 0.65);
+        box-shadow: 0 0 0 4px rgba(85, 117, 107, 0.12);
+      }
+
+      fieldset { margin: 0; padding: 0; border: 0; }
+
+      .chip-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+
+      .chip-grid button,
+      .ghost-button,
+      .primary-button,
+      .range-tabs button,
+      .calendar-controls button,
+      .entry-edit-button {
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        cursor: pointer;
+        font-weight: 800;
+      }
+
+      .chip-grid button {
+        padding: 10px 14px;
+        color: var(--muted);
+        background: rgba(255, 255, 255, 0.46);
+        transition: transform 0.16s cubic-bezier(0.34,1.56,0.64,1), background 0.2s, color 0.2s;
+      }
+      .chip-grid button:hover { transform: translateY(-1px); }
+      .chip-grid button:active { transform: scale(0.94); }
+      .chip-grid button.is-selected {
+        color: #fffaf6;
+        border-color: transparent;
+        background: #55756b;
+      }
+
+      .ghost-button, .primary-button { min-height: 48px; padding: 0 20px; }
+      .ghost-button { color: var(--muted); background: transparent; }
+      .primary-button {
+        color: #fffaf6;
+        border-color: #26231f;
+        background: #26231f;
+        transition: transform 0.15s, box-shadow 0.15s;
+      }
+      .primary-button:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(38,35,31,0.2); }
+      .primary-button:active { transform: scale(0.97); }
+      .primary-button.saved { animation: savePulse 0.55s ease-out; }
+
+      /* ── Memory panel ── */
+      .memory-panel { display: grid; gap: 16px; }
+
+      .month-card, .calendar-card, .entry {
+        background: rgba(255, 250, 241, 0.72);
+        border: 1px solid rgba(255, 255, 255, 0.7);
+        border-radius: 8px;
+        box-shadow: 0 18px 48px rgba(40, 31, 20, 0.1);
+        backdrop-filter: blur(18px);
+      }
+      .month-card {
+        padding: 24px;
+        animation: slideUp 0.5s 0.08s cubic-bezier(0.22,1,0.36,1) both;
+      }
+      .calendar-card {
+        padding: 22px;
+        animation: slideUp 0.5s 0.14s cubic-bezier(0.22,1,0.36,1) both;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 22px;
+      }
+
+      .range-tabs {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 20px;
+        padding: 4px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.32);
+      }
+      .range-tabs button {
+        min-width: 0;
+        min-height: 34px;
+        border-color: transparent;
+        color: var(--muted);
+        background: transparent;
+        font-size: 0.78rem;
+        transition: background 0.2s, color 0.2s;
+      }
+      .range-tabs button[aria-pressed="true"] { color: #fffaf6; background: #55756b; }
+
+      .stats-grid div {
+        min-width: 0;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.36);
+      }
+      .stats-grid span {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--muted);
+        font-size: 0.76rem;
+        font-weight: 800;
+      }
+      .stats-grid strong {
+        display: block;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(1.35rem, 3vw, 1.85rem);
+        font-weight: 500;
+        line-height: 1;
+        transition: opacity 0.2s;
+      }
+
+      /* ── Calendar ── */
+      .calendar-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .calendar-controls {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 6px;
+      }
+      .calendar-controls button {
+        min-height: 34px;
+        padding: 0 10px;
+        color: var(--muted);
+        background: rgba(255, 255, 255, 0.42);
+        font-size: 0.78rem;
+        transition: transform 0.15s;
+      }
+      .calendar-controls button:hover { transform: translateY(-1px); }
+      .calendar-controls button:first-child,
+      .calendar-controls button:nth-child(3) {
+        width: 34px;
+        padding: 0;
+        font-size: 1.2rem;
+        line-height: 1;
+      }
+      .calendar-card.is-collapsed .calendar-body { display: none; }
+
+      .weekday-row, .month-grid {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 6px;
+      }
+      .weekday-row {
+        margin: 20px 0 8px;
+        color: var(--muted);
+        font-size: 0.72rem;
+        font-weight: 800;
+        text-align: center;
+      }
+      .month-grid button, .month-grid span {
+        aspect-ratio: 1;
+        min-width: 0;
+        border-radius: 8px;
+      }
+      .month-grid button {
+        border: 1px solid var(--line);
+        color: var(--day-ink, var(--ink));
+        background: var(--day-color, rgba(255, 255, 255, 0.34));
+        font-size: 0.78rem;
+        font-weight: 800;
+        cursor: pointer;
+        transition: transform 0.16s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.16s;
+      }
+      .month-grid button:hover { transform: translateY(-2px) scale(1.06); box-shadow: 0 4px 12px rgba(38,35,31,0.15); }
+      .month-grid button:active { transform: scale(0.94); }
+      .month-grid button.has-entry { color: #fffaf6; border-color: rgba(255, 255, 255, 0.34); }
+      .month-grid button.is-today { box-shadow: inset 0 0 0 2px #26231f; }
+      .month-grid button:disabled { opacity: 0.25; cursor: default; transform: none; box-shadow: none; }
+      .month-grid button.is-selected { box-shadow: inset 0 0 0 2px #55756b; outline: 3px solid rgba(85,117,107,0.25); outline-offset: 1px; }
+      .month-grid span { border: 1px solid transparent; }
+
+      /* ── Sparkline ── */
+      .sparkline {
+        height: 86px;
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 8px;
+        align-items: end;
+        margin-top: 24px;
+      }
+      .sparkline span {
+        display: block;
+        min-height: 10px;
+        border-radius: 999px 999px 4px 4px;
+        background: var(--bar-color, #b9a16b);
+        transform-origin: bottom;
+        animation: barGrow 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+        transition: height 0.4s cubic-bezier(0.34,1.56,0.64,1);
+      }
+
+      /* ── Timeline ── */
+      .timeline {
+        display: grid;
+        gap: 12px;
+        padding-inline-end: 4px;
+      }
+      .entry {
+        display: grid;
+        grid-template-columns: 10px minmax(0, 1fr);
+        overflow: hidden;
+        animation: slideUp 0.4s cubic-bezier(0.22,1,0.36,1) both;
+      }
+      .entry-tone { background: var(--entry-color, #b9a16b); }
+
+      /* Collapsed header row — always visible */
+      .entry-summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 13px 16px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .entry-summary:hover { background: rgba(255,255,255,0.28); }
+      .entry-summary-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+      .entry-summary h3 { margin: 0; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .entry-summary-meta { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+      .entry-mood-tag {
+        font-size: 0.76rem;
+        font-weight: 800;
+        color: var(--muted);
+      }
+      .entry-photo-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--entry-color, #b9a16b);
+        opacity: 0.7;
+        flex: 0 0 auto;
+      }
+      .entry-chevron {
+        font-size: 0.82rem;
+        color: var(--muted);
+        transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
+        flex: 0 0 auto;
+        line-height: 1;
+      }
+      .entry.is-open .entry-chevron { transform: rotate(180deg); }
+
+      /* Expandable body */
+      .entry-body {
+        display: grid;
+        grid-template-rows: 0fr;
+        transition: grid-template-rows 0.3s cubic-bezier(0.4,0,0.2,1);
+      }
+      .entry.is-open .entry-body { grid-template-rows: 1fr; }
+      .entry-body-inner {
+        overflow: hidden;
+        border-top: 1px solid var(--line);
+      }
+      .entry-body-content { padding: 14px 16px 16px; }
+      .entry h3 { margin-bottom: 0; font-size: 1rem; }
+      .entry-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+      .entry-edit-button {
+        min-height: 30px;
+        padding: 0 10px;
+        color: var(--muted);
+        background: rgba(255, 255, 255, 0.48);
+        font-size: 0.78rem;
+        transition: transform 0.15s;
+      }
+      .entry-edit-button:hover { transform: translateY(-1px); }
+      .entry-body-content p { margin: 0 0 12px; color: var(--muted); line-height: 1.45; }
+      .entry-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+      .entry-chips span {
+        border-radius: 999px;
+        padding: 5px 8px;
+        color: #5a5046;
+        background: rgba(38, 35, 31, 0.08);
+        font-size: 0.78rem;
+        font-weight: 800;
+      }
+
+      .empty-state {
+        padding: 22px;
+        color: var(--muted);
+        text-align: center;
+        border: 1px dashed var(--line);
+        border-radius: 8px;
+        background: rgba(255, 250, 241, 0.55);
+      }
+
+      /* ── Cloud backup UI ── */
+      .cloud-bar {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.36);
+        font-size: 0.82rem;
+        color: var(--muted);
+        margin-bottom: 16px;
+        animation: slideUp 0.5s 0.2s cubic-bezier(0.22,1,0.36,1) both;
+      }
+      .cloud-status {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-weight: 700;
+      }
+      .cloud-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #b9a16b;
+        flex: 0 0 auto;
+        transition: background 0.3s;
+      }
+      .cloud-dot.synced  { background: #55756b; }
+      .cloud-dot.syncing { background: #c47f5b; animation: cloudSpin 0.9s linear infinite; border-radius: 0; width: 10px; height: 10px; clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%); }
+      .cloud-dot.error   { background: #9a5f55; }
+      .cloud-id {
+        font-size: 0.74rem;
+        opacity: 0.7;
+        font-family: monospace;
+        letter-spacing: 0.04em;
+      }
+      .cloud-btn {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 5px 12px;
+        color: var(--muted);
+        background: rgba(255,255,255,0.5);
+        font-size: 0.76rem;
+        font-weight: 800;
+        cursor: pointer;
+        transition: transform 0.15s;
+      }
+      .cloud-btn:hover { transform: translateY(-1px); }
+      .cloud-btn-danger { color: #9a5f55; border-color: rgba(154,95,85,0.3); }
+      .cloud-btn-danger:hover { background: rgba(154,95,85,0.08); }
+
+      /* ── Responsive ── */
+      @media (max-width: 860px) {
+        .app-shell { grid-template-columns: 1fr; align-items: start; width: min(100% - 32px, 1180px); }
+        .timeline { max-height: none; }
+        .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      }
+      @media (max-width: 560px) {
+        .app-shell { width: min(100% - 20px, 1180px); padding: 24px 0 24px; gap: 12px; }
+        .journal-panel { padding: 18px; }
+        .topbar { align-items: flex-start; flex-direction: column; }
+        .date-pill { width: 100%; text-align: center; }
+
+        .stats-grid { grid-template-columns: 1fr; }
+        .calendar-header { display: grid; }
+        .calendar-controls { justify-content: stretch; }
+        .calendar-controls button { flex: 1 1 auto; }
+        .actions { display: grid; grid-template-columns: 1fr; }
+      }
+
+      /* ── Image upload ── */
+      .image-upload-area {
+        border: 1px dashed var(--line);
+        border-radius: 8px;
+        padding: 18px;
+        background: rgba(255,255,255,0.36);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s;
+      }
+      .image-upload-area:hover { border-color: rgba(85,117,107,0.5); background: rgba(85,117,107,0.06); }
+      .image-upload-area.has-image { padding: 0; overflow: hidden; cursor: default; border-style: solid; }
+      .image-upload-area img {
+        width: 100%;
+        max-height: 260px;
+        object-fit: cover;
+        display: block;
+        border-radius: 7px 7px 0 0;
+      }
+      .image-upload-area img[hidden],
+      .image-actions[hidden] { display: none !important; }
+      .image-upload-label {
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-weight: 800;
+        pointer-events: none;
+      }
+      .image-actions {
+        display: flex;
+        gap: 8px;
+        padding: 10px;
+        width: 100%;
+        justify-content: flex-end;
+        background: rgba(255,255,255,0.6);
+      }
+      .image-actions button {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 5px 12px;
+        color: var(--muted);
+        background: rgba(255,255,255,0.7);
+        font-size: 0.76rem;
+        font-weight: 800;
+        cursor: pointer;
+        transition: transform 0.15s;
+      }
+      .image-actions button:hover { transform: translateY(-1px); }
+      .image-uploading {
+        font-size: 0.82rem;
+        color: #8a654f;
+        font-weight: 700;
+        padding: 4px 0;
+      }
+
+      /* ── Stats nav ── */
+      .stats-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 14px;
+        gap: 8px;
+      }
+      .stats-nav button {
+        width: 30px;
+        height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255,255,255,0.42);
+        color: var(--muted);
+        font-size: 1.1rem;
+        line-height: 1;
+        cursor: pointer;
+        transition: transform 0.15s;
+        flex: 0 0 auto;
+      }
+      .stats-nav button:hover { transform: translateY(-1px); }
+      .stats-nav button:disabled { opacity: 0.3; cursor: default; transform: none; }
+      #statsTodayBtn { padding: 0 10px; width: auto; font-size: 0.72rem; }
+      #statsTodayBtn[hidden] { display: none; }
+      .stats-nav span {
+        font-size: 0.82rem;
+        font-weight: 800;
+        color: var(--muted);
+        text-align: center;
+        flex: 1;
+      }
+
+      /* ── Timeline month headers ── */
+      .timeline-month-header {
+        font-size: 0.78rem;
+        font-weight: 800;
+        color: var(--muted);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 4px 2px;
+        margin-top: 4px;
+      }
+
+      /* ── Editing indicator ── */
+      .entry.is-editing {
+        box-shadow: inset 0 0 0 2px #55756b;
+      }
+
+      /* ── Char counter ── */
+      .memory-label-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+      .memory-label-row span { margin-bottom: 0; }
+      .char-counter {
+        font-size: 0.76rem;
+        font-weight: 700;
+        color: var(--muted);
+        transition: color 0.2s;
+      }
+      .char-counter.near-limit { color: #c47f5b; }
+      .char-counter.at-limit   { color: #9a5f55; }
+
+      /* ── Entry image in timeline ── */
+      .entry-image {
+        width: 100%;
+        max-height: 240px;
+        object-fit: cover;
+        display: block;
+      }
+      .entry-image-wrap {
+        overflow: hidden;
+        border-bottom: 1px solid var(--line);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="journal-panel" data-i18n-aria-label="journalAriaLabel">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" data-i18n="eyebrowJournal">Keepsake</p>
+            <h1 data-i18n="heading">How was today?</h1>
+          </div>
+          <div class="topbar-actions">
+            <time id="todayLabel" class="date-pill"></time>
+            <button type="button" id="langToggle" class="lang-toggle"></button>
+          </div>
+        </header>
+
+        <div class="mood-card" id="moodCard">
+          <div class="mood-readout">
+            <span id="moodWord">Okay</span>
+            <strong id="moodScore">4</strong>
+          </div>
+          <p id="moodHint">A steady middle. Nothing to force, nothing to fix.</p>
+
+          <div class="slider-wrap">
+            <input id="moodSlider" class="mood-slider" type="range" min="1" max="7" value="4" step="1" data-i18n-aria-label="moodSliderAriaLabel" />
+            <div class="slider-track-labels" aria-hidden="true">
+              <span data-i18n="sliderAwful">Awful</span><span data-i18n="sliderBliss">Bliss</span>
+            </div>
+            <div class="ticks" aria-hidden="true">
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+
+        </div>
+
+        <form class="entry-form" id="entryForm">
+          <div class="edit-strip" id="editStrip" hidden>
+            <span id="editLabel">Editing today</span>
+            <button type="button" id="newEntryButton" data-i18n="newEntryButton">New today</button>
+          </div>
+
+          <div>
+            <div class="memory-label-row">
+              <span style="color:var(--muted);font-weight:800;" data-i18n="memoryLabel">Memory</span>
+              <span class="char-counter" id="charCounter">0 / 500</span>
+            </div>
+            <textarea id="memoryInput" rows="6" maxlength="500" data-i18n-placeholder="memoryPlaceholder" placeholder="What do you want to remember about today?"></textarea>
+          </div>
+
+          <div>
+            <span style="display:block;margin-bottom:10px;color:var(--muted);font-weight:800;" data-i18n="photoLabel">Photo</span>
+            <div class="image-upload-area" id="imageUploadArea">
+              <img id="imagePreviewImg" alt="" hidden />
+              <div class="image-actions" id="imageActionsBar" hidden>
+                <button type="button" id="imageChangeBtn" data-i18n="imageChange">Change</button>
+                <button type="button" id="imageRemoveBtn" data-i18n="imageRemove">Remove</button>
+              </div>
+              <span class="image-upload-label" id="imageUploadLabel" data-i18n="imageUploadLabel">Tap to add a photo</span>
+              <input type="file" id="imageFileInput" accept="image/*" hidden />
+            </div>
+            <p class="image-uploading" id="imageUploading" hidden data-i18n="imageProcessing">Processing photo…</p>
+          </div>
+
+          <fieldset>
+            <legend data-i18n="smallDetails">Small details</legend>
+            <div class="chip-grid" id="chipGrid">
+              <button type="button" data-chip="rest" data-i18n="chips.rest">Rest</button>
+              <button type="button" data-chip="work" data-i18n="chips.work">Work</button>
+              <button type="button" data-chip="people" data-i18n="chips.people">People</button>
+              <button type="button" data-chip="outside" data-i18n="chips.outside">Outside</button>
+              <button type="button" data-chip="food" data-i18n="chips.food">Food</button>
+              <button type="button" data-chip="movement" data-i18n="chips.movement">Movement</button>
+            </div>
+          </fieldset>
+
+          <div class="actions">
+            <button class="ghost-button" id="clearButton" type="button" data-i18n="clear">Clear</button>
+            <button class="primary-button" id="saveButton" type="submit">Save today</button>
+          </div>
+        </form>
+      </section>
+
+      <aside class="memory-panel" data-i18n-aria-label="memoriesAriaLabel">
+        <div class="cloud-bar" id="cloudBar">
+          <div class="cloud-status">
+            <span class="cloud-dot" id="cloudDot"></span>
+            <span id="cloudStatus" data-i18n="settingUpCloud">Setting up cloud…</span>
+          </div>
+          <span class="cloud-id" id="cloudId"></span>
+          <button class="cloud-btn" id="cloudCopyBtn" data-i18n="cloudCopyText" data-i18n-title="cloudCopyTitle" title="Copy your sync ID to use on another device">Copy ID</button>
+          <button class="cloud-btn" id="cloudLinkBtn" data-i18n="cloudLinkText" data-i18n-title="cloudLinkTitle" title="Link to an existing sync ID">Link ID</button>
+          <button class="cloud-btn" id="exportBtn" data-i18n="exportText">Export</button>
+          <button class="cloud-btn cloud-btn-danger" id="deleteAllBtn" data-i18n="deleteAll">Delete all</button>
+        </div>
+
+        <div class="month-card">
+          <div class="month-header">
+            <div>
+              <p class="eyebrow" data-i18n="moodStatsEyebrow">Mood stats</p>
+              <h2 data-i18n="archiveHeading">Little archive</h2>
+            </div>
+            <span id="entryCount">0</span>
+          </div>
+          <div class="range-tabs" data-i18n-aria-label="statsRangeAriaLabel">
+            <button type="button" data-range="week" aria-pressed="true" data-i18n="week">Week</button>
+            <button type="button" data-range="month" data-i18n="month">Month</button>
+            <button type="button" data-range="year" data-i18n="year">Year</button>
+          </div>
+          <div class="stats-nav" id="statsNav">
+            <button type="button" id="statsPrevBtn">‹</button>
+            <span id="statsNavLabel"></span>
+            <button type="button" id="statsNextBtn">›</button>
+            <button type="button" id="statsTodayBtn" data-i18n="today">Today</button>
+          </div>
+          <div class="stats-grid" id="statsGrid" data-i18n-aria-label="statsAriaLabel">
+            <div><span data-i18n="average">Average</span><strong id="averageMood">-</strong></div>
+            <div><span data-i18n="bestDay">Best day</span><strong id="bestMood">-</strong></div>
+            <div><span data-i18n="positive">Positive</span><strong id="positiveRate">0%</strong></div>
+          </div>
+          <div class="sparkline" id="sparkline" data-i18n-aria-label="moodHistoryAriaLabel"></div>
+        </div>
+
+        <div class="calendar-card">
+          <div class="calendar-header">
+            <div>
+              <p class="eyebrow" data-i18n="monthlyViewEyebrow">Monthly view</p>
+              <h2 id="monthTitle"></h2>
+            </div>
+            <div class="calendar-controls">
+              <button type="button" id="prevMonthButton" data-i18n-aria-label="prevMonthAriaLabel">‹</button>
+              <button type="button" id="todayMonthButton" data-i18n="today">Today</button>
+              <button type="button" id="nextMonthButton" data-i18n-aria-label="nextMonthAriaLabel">›</button>
+              <button type="button" id="collapseMonthButton" aria-expanded="true" data-i18n="collapse">Collapse</button>
+            </div>
+          </div>
+          <div class="calendar-body" id="calendarBody">
+            <div class="weekday-row" id="weekdayRow" aria-hidden="true">
+              <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+            </div>
+            <div class="month-grid" id="monthGrid" data-i18n-aria-label="monthGridAriaLabel"></div>
+          </div>
+        </div>
+
+        <div class="timeline" id="timeline"></div>
+      </aside>
+    </main>
+
+    <template id="entryTemplate">
+      <article class="entry">
+        <div class="entry-tone"></div>
+        <div>
+          <!-- Collapsed summary row -->
+          <div class="entry-summary">
+            <div class="entry-summary-left">
+              <h3></h3>
+            </div>
+            <div class="entry-summary-meta">
+              <span class="entry-mood-tag"></span>
+              <span class="entry-photo-dot" hidden></span>
+              <span class="entry-chevron">▾</span>
+            </div>
+          </div>
+          <!-- Expandable body -->
+          <div class="entry-body">
+            <div class="entry-body-inner">
+              <div class="entry-image-wrap" hidden></div>
+              <div class="entry-body-content">
+                <p></p>
+                <div class="entry-chips"></div>
+                <div class="entry-actions"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </template>
+
+    <!-- Shared i18n data, used by both the Firebase module and the main script -->
+    <script>
+      window.LANG_KEY = "keepsake-lang";
+      window.STORAGE_KEY = "keepsake-slider-entries";
+      window.CLOUD_LINK_KEY = "keepsake-cloud-uid";
+
+      window.WEEKDAYS = {
+        en: ["S", "M", "T", "W", "T", "F", "S"],
+        he: ["א", "ב", "ג", "ד", "ה", "ו", "ש"],
+      };
+
+      window.MOODS = {
+        en: [
+          { score: 1, name: "Awful",   type: "negative", color: "#6f4c5b", hint: "Heavy, sharp, or barely held together. Name it gently." },
+          { score: 2, name: "Bad",     type: "negative", color: "#9a5f55", hint: "A hard day with some edges. Let the record be honest." },
+          { score: 3, name: "Rough",   type: "negative", color: "#c47f5b", hint: "Not all bad, but not easy either. Mark what took effort." },
+          { score: 4, name: "Okay",    type: "neutral",  color: "#b9a16b", hint: "A steady middle. Nothing to force, nothing to fix." },
+          { score: 5, name: "Good",    type: "positive", color: "#72956f", hint: "There was something here worth keeping close." },
+          { score: 6, name: "Great",   type: "positive", color: "#4f8c88", hint: "A bright day. Catch a few details before they blur." },
+          { score: 7, name: "Bliss",   type: "positive", color: "#416f92", hint: "Full, vivid, and alive. Make a keepsake of it." },
+        ],
+        he: [
+          { score: 1, name: "נורא",    type: "negative", color: "#6f4c5b", hint: "כבד, חד, או כזה שבקושי מחזיק מעמד. אפשר לקרוא לזה בשמו בעדינות." },
+          { score: 2, name: "רע",      type: "negative", color: "#9a5f55", hint: "יום קשה עם כמה זוויות חדות. כדאי שהרישום יהיה כן." },
+          { score: 3, name: "קשה",     type: "negative", color: "#c47f5b", hint: "לא הכל רע, אבל גם לא פשוט. שווה לציין מה דרש מאמץ." },
+          { score: 4, name: "בסדר",    type: "neutral",  color: "#b9a16b", hint: "אמצע יציב. אין צורך במאמץ יתר ואין מה לתקן." },
+          { score: 5, name: "טוב",     type: "positive", color: "#72956f", hint: "היה כאן משהו ששווה לשמור קרוב." },
+          { score: 6, name: "מצוין",   type: "positive", color: "#4f8c88", hint: "יום בהיר. שווה לתפוס כמה פרטים לפני שהם מתעמעמים." },
+          { score: 7, name: "אושר",    type: "positive", color: "#416f92", hint: "מלא, חי ותוסס. אפשר להפוך את זה למזכרת." },
+        ],
+      };
+
+      window.STRINGS = {
+        en: {
+          htmlLang: "en",
+          htmlDir: "ltr",
+          intlLocale: "en",
+          pageTitle: "Keepsake Mood",
+          appShortTitle: "Keepsake",
+          journalAriaLabel: "Daily mood entry",
+          eyebrowJournal: "Keepsake",
+          heading: "How was today?",
+          moodSliderAriaLabel: "Mood from awful to bliss",
+          sliderAwful: "Awful",
+          sliderBliss: "Bliss",
+          newEntryButton: "New today",
+          memoryLabel: "Memory",
+          memoryPlaceholder: "What do you want to remember about today?",
+          photoLabel: "Photo",
+          imageChange: "Change",
+          imageRemove: "Remove",
+          imageUploadLabel: "Tap to add a photo",
+          imageProcessing: "Processing photo…",
+          smallDetails: "Small details",
+          chips: { rest: "Rest", work: "Work", people: "People", outside: "Outside", food: "Food", movement: "Movement" },
+          clear: "Clear",
+          saveToday: "Save today",
+          saveChanges: "Save changes",
+          saveEntry: "Save entry",
+          memoriesAriaLabel: "Saved memories",
+          cloudCopyText: "Copy ID",
+          cloudCopyTitle: "Copy your sync ID to use on another device",
+          cloudCopyCopied: "Copied!",
+          cloudLinkText: "Link ID",
+          cloudLinkTitle: "Link to an existing sync ID",
+          cloudLinkPrompt: "Paste your sync ID from another device:",
+          exportText: "Export",
+          exportNoEntries: "No entries to export.",
+          csvHeaders: ["Date", "Score", "Mood", "Memory", "Chips", "Has Photo"],
+          yesLabel: "Yes",
+          noLabel: "No",
+          deleteAll: "Delete all",
+          deleteNothing: "Nothing to delete.",
+          deleteConfirm: (n) => `Delete all ${n} entries? This cannot be undone.`,
+          moodStatsEyebrow: "Mood stats",
+          archiveHeading: "Little archive",
+          statsRangeAriaLabel: "Mood statistics range",
+          week: "Week",
+          month: "Month",
+          year: "Year",
+          today: "Today",
+          statsAriaLabel: "Mood statistics",
+          average: "Average",
+          bestDay: "Best day",
+          positive: "Positive",
+          moodHistoryAriaLabel: "Mood history",
+          monthlyViewEyebrow: "Monthly view",
+          prevMonthAriaLabel: "Previous month",
+          nextMonthAriaLabel: "Next month",
+          collapse: "Collapse",
+          expand: "Expand",
+          monthGridAriaLabel: "Monthly mood calendar",
+          editingDate: (date) => `Editing ${date}`,
+          noEntrySuffix: ", no entry",
+          noNote: "No note added.",
+          addEntryForDay: "Add an entry for this day",
+          noEntryFor: (date) => `No entry for ${date}.`,
+          noEntry: "No entry",
+          noEntries: "No entries",
+          edit: "Edit",
+          processing: "Processing…",
+          syncingMsg: "Syncing…",
+          syncedMsg: "Synced",
+          syncFailed: (e) => `Sync failed: ${e}`,
+          savingMsg: "Saving…",
+          savedMsg: "Saved",
+          saveFailed: (e) => `Save failed: ${e}`,
+          enableAnonAuth: "Enable Anonymous Auth in Firebase console",
+          addAuthorizedDomain: (domain) => `Add ${domain} to Firebase Auth > Settings > Authorized domains`,
+          authFailedFallback: "Auth failed — check Firebase console",
+          localOnly: "Local only — no Firebase config",
+          linkingMsg: "Linking…",
+          langToggleLabel: "עברית",
+          langToggleAriaLabel: "Switch to Hebrew",
+          settingUpCloud: "Setting up cloud…",
+        },
+        he: {
+          htmlLang: "he",
+          htmlDir: "rtl",
+          intlLocale: "he",
+          pageTitle: "מזכרת – יומן מצב רוח",
+          appShortTitle: "מזכרת",
+          journalAriaLabel: "רשומת מצב רוח יומית",
+          eyebrowJournal: "מזכרת",
+          heading: "איך היה היום?",
+          moodSliderAriaLabel: "מצב רוח מנורא ועד אושר",
+          sliderAwful: "נורא",
+          sliderBliss: "אושר",
+          newEntryButton: "חזרה להיום",
+          memoryLabel: "זיכרון",
+          memoryPlaceholder: "מה כדאי לזכור מהיום?",
+          photoLabel: "תמונה",
+          imageChange: "החלפה",
+          imageRemove: "הסרה",
+          imageUploadLabel: "הקלקה להוספת תמונה",
+          imageProcessing: "מעבד תמונה…",
+          smallDetails: "פרטים קטנים",
+          chips: { rest: "מנוחה", work: "עבודה", people: "אנשים", outside: "בחוץ", food: "אוכל", movement: "תנועה" },
+          clear: "איפוס",
+          saveToday: "שמירת היום",
+          saveChanges: "שמירת שינויים",
+          saveEntry: "שמירת רשומה",
+          memoriesAriaLabel: "זכרונות שמורים",
+          cloudCopyText: "העתקת מזהה",
+          cloudCopyTitle: "העתקת מזהה הסנכרון לשימוש במכשיר אחר",
+          cloudCopyCopied: "הועתק!",
+          cloudLinkText: "קישור מזהה",
+          cloudLinkTitle: "קישור למזהה סנכרון קיים",
+          cloudLinkPrompt: "הדבק/י כאן את מזהה הסנכרון מהמכשיר האחר:",
+          exportText: "ייצוא",
+          exportNoEntries: "אין רשומות לייצוא.",
+          csvHeaders: ["תאריך", "ניקוד", "מצב רוח", "זיכרון", "תגיות", "יש תמונה"],
+          yesLabel: "כן",
+          noLabel: "לא",
+          deleteAll: "מחיקת הכל",
+          deleteNothing: "אין מה למחוק.",
+          deleteConfirm: (n) => `למחוק את כל ${n} הרשומות? לא ניתן לשחזר פעולה זו.`,
+          moodStatsEyebrow: "סטטיסטיקת מצב רוח",
+          archiveHeading: "ארכיון קטן",
+          statsRangeAriaLabel: "טווח סטטיסטיקת מצב רוח",
+          week: "שבוע",
+          month: "חודש",
+          year: "שנה",
+          today: "היום",
+          statsAriaLabel: "סטטיסטיקת מצב רוח",
+          average: "ממוצע",
+          bestDay: "היום הטוב ביותר",
+          positive: "חיובי",
+          moodHistoryAriaLabel: "היסטוריית מצב רוח",
+          monthlyViewEyebrow: "תצוגה חודשית",
+          prevMonthAriaLabel: "חודש קודם",
+          nextMonthAriaLabel: "חודש הבא",
+          collapse: "כיווץ",
+          expand: "הרחבה",
+          monthGridAriaLabel: "לוח שנה חודשי של מצב הרוח",
+          editingDate: (date) => `עריכה: ${date}`,
+          noEntrySuffix: ", אין רשומה",
+          noNote: "לא נוספה הערה.",
+          addEntryForDay: "להוספת רשומה ליום זה",
+          noEntryFor: (date) => `אין רשומה לתאריך ${date}.`,
+          noEntry: "אין רשומה",
+          noEntries: "אין רשומות",
+          edit: "עריכה",
+          processing: "בעיבוד…",
+          syncingMsg: "מסנכרן…",
+          syncedMsg: "מסונכרן",
+          syncFailed: (e) => `הסנכרון נכשל: ${e}`,
+          savingMsg: "שומר…",
+          savedMsg: "נשמר",
+          saveFailed: (e) => `השמירה נכשלה: ${e}`,
+          enableAnonAuth: "יש להפעיל התחברות אנונימית בקונסולת Firebase",
+          addAuthorizedDomain: (domain) => `יש להוסיף ${domain} לרשימת הדומיינים המאושרים ב-Firebase Auth`,
+          authFailedFallback: "ההתחברות נכשלה — יש לבדוק את קונסולת Firebase",
+          localOnly: "מקומי בלבד — אין הגדרת Firebase",
+          linkingMsg: "מקשר…",
+          langToggleLabel: "English",
+          langToggleAriaLabel: "החלפה לאנגלית",
+          settingUpCloud: "מגדיר חיבור לעננה…",
+        },
+      };
+
+      window.getI18nString = function (lang, path) {
+        return path.split(".").reduce((obj, key) => (obj == null ? obj : obj[key]), window.STRINGS[lang]);
+      };
+
+      // Translates every static element in the DOM. Dynamic, data-driven
+      // content (entries, calendar, stats, cloud status…) is re-rendered
+      // separately by the main script after this runs.
+      window.translateStaticDOM = function (lang) {
+        const S = window.STRINGS[lang];
+
+        document.documentElement.lang = S.htmlLang;
+        document.documentElement.dir = S.htmlDir;
+        document.title = S.pageTitle;
+
+        const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+        if (appleTitle) appleTitle.setAttribute("content", S.appShortTitle);
+
+        document.querySelectorAll("[data-i18n]").forEach((el) => {
+          const value = window.getI18nString(lang, el.dataset.i18n);
+          if (typeof value === "string") el.textContent = value;
+        });
+        document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+          el.placeholder = window.getI18nString(lang, el.dataset.i18nPlaceholder);
+        });
+        document.querySelectorAll("[data-i18n-aria-label]").forEach((el) => {
+          el.setAttribute("aria-label", window.getI18nString(lang, el.dataset.i18nAriaLabel));
+        });
+        document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+          el.setAttribute("title", window.getI18nString(lang, el.dataset.i18nTitle));
+        });
+
+        const weekdayRow = document.getElementById("weekdayRow");
+        if (weekdayRow) {
+          weekdayRow.innerHTML = window.WEEKDAYS[lang].map((d) => `<span>${d}</span>`).join("");
+        }
+
+        const toggle = document.getElementById("langToggle");
+        if (toggle) {
+          toggle.textContent = S.langToggleLabel;
+          toggle.setAttribute("aria-label", S.langToggleAriaLabel);
+        }
+      };
+    </script>
+
+    <!-- Firebase -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+      import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
+      import { getDatabase, ref, set, get, onValue, off } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
+
+      // ── Firebase config — replace with your own project ──
+      const firebaseConfig = {
+        apiKey: "AIzaSyA5M98a8Bt2LKiTrbTU1g2DAeHJTDFcFQQ",
+        authDomain: "keepsake-e266e.firebaseapp.com",
+        databaseURL: "https://keepsake-e266e-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "keepsake-e266e",
+        storageBucket: "keepsake-e266e.firebasestorage.app",
+        messagingSenderId: "47541654696",
+        appId: "1:47541654696:web:136f1c99c3af88e4fb1e9d",
+        measurementId: "G-30WSC0X00K"
+      };
+
+      let db, uid, entriesRef, remoteUnsubscribe;
+      const LINK_KEY = window.CLOUD_LINK_KEY;
+
+      const cloudDot    = document.getElementById("cloudDot");
+      const cloudStatus = document.getElementById("cloudStatus");
+      const cloudIdEl   = document.getElementById("cloudId");
+      const cloudCopyBtn = document.getElementById("cloudCopyBtn");
+      const cloudLinkBtn = document.getElementById("cloudLinkBtn");
+
+      // msgFn receives the active language and returns the status text —
+      // this lets us re-translate the current cloud status after a language switch.
+      function setCloudState(state, msgFn, id) {
+        window._lastCloudMsgFn = msgFn;
+        cloudDot.className = "cloud-dot " + state;
+        cloudStatus.textContent = msgFn(window.CURRENT_LANG);
+        if (id !== undefined) cloudIdEl.textContent = id ? id.slice(0,8) + "…" : "";
+      }
+      window._refreshCloudStatus = function () {
+        if (window._lastCloudMsgFn) cloudStatus.textContent = window._lastCloudMsgFn(window.CURRENT_LANG);
+      };
+
+      function getLinkedUid() {
+        return localStorage.getItem(LINK_KEY);
+      }
+
+      // Firebase stores arrays as objects with numeric keys — normalize either form
+      function toArray(val) {
+        if (!val) return [];
+        if (Array.isArray(val)) return val.filter(Boolean);
+        return Object.values(val).filter(Boolean);
+      }
+
+      function mergeEntries(local, remoteRaw) {
+        const remote = toArray(remoteRaw);
+        const localMap = new Map(local.map(e => [e.date, e]));
+        const map = new Map();
+        local.forEach(e => map.set(e.date, e));
+        remote.forEach(e => {
+          if (!e || !e.date) return;
+          const localEntry = localMap.get(e.date);
+          map.set(e.date, { chips: [], ...e, imageUrl: e.imageUrl || localEntry?.imageUrl || null });
+        });
+        return [...map.values()].sort((a, b) => b.date.localeCompare(a.date));
+      }
+
+      function setupRealtimeSync(database, userId) {
+        if (remoteUnsubscribe) { off(entriesRef); }
+        uid = userId;
+        entriesRef = ref(database, "users/" + uid + "/entries");
+        setCloudState("syncing", lang => window.STRINGS[lang].syncingMsg, uid);
+
+        get(entriesRef).then(snapshot => {
+          if (snapshot.exists()) {
+            const local  = window._getEntries();
+            const merged = mergeEntries(local, snapshot.val());
+            window._setEntries(merged);
+            window._renderEntries();
+          }
+          setCloudState("synced", lang => window.STRINGS[lang].syncedMsg, uid);
+        }).catch(err => setCloudState("error", lang => window.STRINGS[lang].syncFailed(err?.code || err?.message || err), uid));
+
+        window._pushToCloud = (entries) => {
+          // Store as object keyed by date — avoids Firebase array-to-object conversion issues
+          const payload = {};
+          entries.forEach(e => { payload[e.date] = e; });
+          setCloudState("syncing", lang => window.STRINGS[lang].savingMsg, uid);
+          set(entriesRef, payload)
+            .then(() => setCloudState("synced", lang => window.STRINGS[lang].savedMsg, uid))
+            .catch(err => setCloudState("error", lang => window.STRINGS[lang].saveFailed(err?.code || err?.message || err), uid));
+        };
+      }
+
+      try {
+        const app  = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        db = getDatabase(app);
+
+
+        const linked = getLinkedUid();
+
+        onAuthStateChanged(auth, async (user) => {
+          if (user) {
+            const effectiveUid = linked || user.uid;
+            // If the user chose to link to a different uid, use it
+            if (linked && linked !== user.uid) {
+              // Use linked uid as the data path (not auth uid, fine for RTDB rules)
+              setupRealtimeSync(db, linked);
+            } else {
+              localStorage.setItem(LINK_KEY, user.uid);
+              setupRealtimeSync(db, user.uid);
+            }
+          }
+        });
+
+        signInAnonymously(auth).catch((err) => {
+          const msgFn = err?.code === "auth/operation-not-allowed"
+            ? (lang => window.STRINGS[lang].enableAnonAuth)
+            : err?.code === "auth/unauthorized-domain"
+            ? (lang => window.STRINGS[lang].addAuthorizedDomain(location.hostname))
+            : (lang => err?.code || err?.message || window.STRINGS[lang].authFailedFallback);
+          setCloudState("error", msgFn, "");
+          window._pushToCloud = null;
+        });
+
+      } catch (e) {
+        // Firebase not configured — silently degrade to local-only
+        setCloudState("", lang => window.STRINGS[lang].localOnly, "");
+        cloudCopyBtn.style.display = "none";
+        cloudLinkBtn.style.display = "none";
+        window._pushToCloud = null;
+      }
+
+      cloudCopyBtn.addEventListener("click", () => {
+        const id = localStorage.getItem(LINK_KEY);
+        if (!id) return;
+        navigator.clipboard.writeText(id).then(() => {
+          const S = window.STRINGS[window.CURRENT_LANG];
+          cloudCopyBtn.textContent = S.cloudCopyCopied;
+          setTimeout(() => cloudCopyBtn.textContent = window.STRINGS[window.CURRENT_LANG].cloudCopyText, 1800);
+        });
+      });
+
+      cloudLinkBtn.addEventListener("click", () => {
+        const input = prompt(window.STRINGS[window.CURRENT_LANG].cloudLinkPrompt);
+        if (!input || input.length < 10) return;
+        const trimmed = input.trim();
+        localStorage.setItem(LINK_KEY, trimmed);
+        setCloudState("syncing", lang => window.STRINGS[lang].linkingMsg, trimmed);
+        setupRealtimeSync(db, trimmed);
+      });
+
+      document.getElementById("exportBtn").addEventListener("click", () => {
+        const lang = window.CURRENT_LANG;
+        const S = window.STRINGS[lang];
+        const entries = JSON.parse(localStorage.getItem(window.STORAGE_KEY) || "[]");
+        if (entries.length === 0) { alert(S.exportNoEntries); return; }
+
+        // Build CSV
+        const rows = [S.csvHeaders];
+        const moodNames = {};
+        window.MOODS[lang].forEach(m => { moodNames[m.score] = m.name; });
+        entries.forEach(e => {
+          rows.push([
+            e.date,
+            e.score,
+            moodNames[e.score] || e.score,
+            '"' + (e.memory || "").replace(/"/g, '""') + '"',
+            (e.chips || []).join(", "),
+            e.imageUrl ? S.yesLabel : S.noLabel
+          ]);
+        });
+        const csv = rows.map(r => r.join(",")).join("\n");
+        const blob = new Blob([csv], { type: "text/csv" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "keepsake-" + new Date().toISOString().slice(0,10) + ".csv";
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+
+      document.getElementById("deleteAllBtn").addEventListener("click", () => {
+        const S = window.STRINGS[window.CURRENT_LANG];
+        const count = JSON.parse(localStorage.getItem(window.STORAGE_KEY) || "[]").length;
+        if (count === 0) { alert(S.deleteNothing); return; }
+        const confirmed = confirm(S.deleteConfirm(count));
+        if (!confirmed) return;
+        localStorage.removeItem(window.STORAGE_KEY);
+        if (typeof window._pushToCloud === "function") window._pushToCloud([]);
+        window._renderEntries();
+      });
+    </script>
+
+    <script>
+      // ── Language state — set immediately so any early calls (e.g. from the
+      // Firebase module) have a valid language to work with. ──
+      let CURRENT_LANG = localStorage.getItem(window.LANG_KEY)
+        || ((navigator.language || "").toLowerCase().startsWith("he") ? "he" : "en");
+      window.CURRENT_LANG = CURRENT_LANG;
+      function T() { return window.STRINGS[CURRENT_LANG]; }
+
+      const storageKey = window.STORAGE_KEY;
+
+      const slider            = document.querySelector("#moodSlider");
+      const moodWord          = document.querySelector("#moodWord");
+      const moodScore         = document.querySelector("#moodScore");
+      const moodHint          = document.querySelector("#moodHint");
+      const moodCard          = document.querySelector("#moodCard");
+      const entryForm         = document.querySelector("#entryForm");
+      const memoryInput       = document.querySelector("#memoryInput");
+      const chipGrid          = document.querySelector("#chipGrid");
+      const timeline          = document.querySelector("#timeline");
+      const sparkline         = document.querySelector("#sparkline");
+      const entryCount        = document.querySelector("#entryCount");
+      const averageMood       = document.querySelector("#averageMood");
+      const bestMood          = document.querySelector("#bestMood");
+      const positiveRate      = document.querySelector("#positiveRate");
+      const monthTitle        = document.querySelector("#monthTitle");
+      const monthGrid         = document.querySelector("#monthGrid");
+      const calendarCard      = document.querySelector(".calendar-card");
+      const calendarBody      = document.querySelector("#calendarBody");
+      const prevMonthButton   = document.querySelector("#prevMonthButton");
+      const nextMonthButton   = document.querySelector("#nextMonthButton");
+      const todayMonthButton  = document.querySelector("#todayMonthButton");
+      const collapseMonthButton = document.querySelector("#collapseMonthButton");
+      const rangeTabs         = document.querySelector(".range-tabs");
+      const todayLabel        = document.querySelector("#todayLabel");
+      const langToggle        = document.querySelector("#langToggle");
+      const clearButton       = document.querySelector("#clearButton");
+      const saveButton        = document.querySelector("#saveButton");
+      const editStrip         = document.querySelector("#editStrip");
+      const editLabel         = document.querySelector("#editLabel");
+      const newEntryButton    = document.querySelector("#newEntryButton");
+      const template          = document.querySelector("#entryTemplate");
+      const imageUploadArea   = document.querySelector("#imageUploadArea");
+      const imageFileInput    = document.querySelector("#imageFileInput");
+      const imageUploadLabel  = document.querySelector("#imageUploadLabel");
+      const imageUploading    = document.querySelector("#imageUploading");
+      const imagePreviewImg   = document.querySelector("#imagePreviewImg");
+      const imageActionsBar   = document.querySelector("#imageActionsBar");
+      const imageChangeBtn    = document.querySelector("#imageChangeBtn");
+      const imageRemoveBtn    = document.querySelector("#imageRemoveBtn");
+      const charCounter       = document.querySelector("#charCounter");
+
+      const selectedChips = new Set();
+      let editingDate   = localDateKey(new Date());
+      let currentImageUrl = null;
+      let compressionPromise = null;
+      let visibleMonth  = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      let statsRange    = "week";
+      let statsOffset   = 0; // how many periods back from now
+      let lastMoodScore = 4;
+
+      // Exposed so Firebase module can call them
+      window._getEntries  = getEntries;
+      window._setEntries  = setEntries;
+      window._renderEntries = renderEntries;
+      window._pushToCloud = null; // set by Firebase module when ready
+
+      function getEntries() {
+        return JSON.parse(localStorage.getItem(storageKey) || "[]").map(e => ({ chips: [], ...e }));
+      }
+
+      function setEntries(entries) {
+        localStorage.setItem(storageKey, JSON.stringify(
+          entries.sort((a, b) => b.date.localeCompare(a.date))
+        ));
+      }
+
+      function moodForScore(score) {
+        const moods = window.MOODS[CURRENT_LANG];
+        return moods.find(m => m.score === Number(score)) || moods[3];
+      }
+
+      function formatDate(dateString, style = "medium") {
+        return new Intl.DateTimeFormat(T().intlLocale, {
+          month: style === "short" ? "short" : "long",
+          day: "numeric",
+          weekday: style === "short" ? undefined : "long",
+        }).format(parseLocalDate(dateString));
+      }
+
+      function parseLocalDate(dateString) {
+        const [year, month, day] = dateString.split("-").map(Number);
+        return new Date(year, month - 1, day);
+      }
+
+      function localDateKey(date) {
+        const year  = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day   = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      }
+
+      function getStatsWindow() {
+        const now = new Date();
+        if (statsRange === "week") {
+          const start = new Date(now);
+          start.setHours(0, 0, 0, 0);
+          start.setDate(start.getDate() - start.getDay() - statsOffset * 7);
+          const end = new Date(start);
+          end.setDate(start.getDate() + 7);
+          return { start, end, label: formatDate(localDateKey(start), "short") + " – " + formatDate(localDateKey(new Date(end.getTime() - 86400000)), "short") };
+        }
+        if (statsRange === "month") {
+          const d = new Date(now.getFullYear(), now.getMonth() - statsOffset, 1);
+          const start = d;
+          const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+          return { start, end, label: new Intl.DateTimeFormat(T().intlLocale, { month: "long", year: "numeric" }).format(d) };
+        }
+        // year
+        const y = now.getFullYear() - statsOffset;
+        return { start: new Date(y, 0, 1), end: new Date(y, 11, 31), label: String(y) };
+      }
+
+      function isInStatsRange(entryDate) {
+        const date = parseLocalDate(entryDate);
+        const { start, end } = getStatsWindow();
+        return date >= start && date <= end;
+      }
+
+      function renderStats(entries) {
+        const { label } = getStatsWindow();
+        const statsNavLabel = document.getElementById("statsNavLabel");
+        const statsNextBtn  = document.getElementById("statsNextBtn");
+        if (statsNavLabel) statsNavLabel.textContent = label;
+        if (statsNextBtn)  statsNextBtn.disabled = statsOffset === 0;
+        const statsTodayBtn = document.getElementById("statsTodayBtn");
+        if (statsTodayBtn) statsTodayBtn.hidden = statsOffset === 0;
+        const scoped = entries.filter(e => isInStatsRange(e.date));
+        if (scoped.length === 0) {
+          averageMood.textContent  = "-";
+          bestMood.textContent     = "-";
+          positiveRate.textContent = "0%";
+          return;
+        }
+        const total    = scoped.reduce((s, e) => s + Number(e.score), 0);
+        const best     = scoped.reduce((h, e) => e.score > h.score ? e : h, scoped[0]);
+        const positive = scoped.filter(e => moodForScore(e.score).type === "positive").length;
+        averageMood.textContent  = (total / scoped.length).toFixed(1);
+        bestMood.textContent     = moodForScore(best.score).name;
+        positiveRate.textContent = `${Math.round((positive / scoped.length) * 100)}%`;
+      }
+
+      function renderMonth(entries) {
+        const now     = new Date();
+        const year    = visibleMonth.getFullYear();
+        const month   = visibleMonth.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const lastDay  = new Date(year, month + 1, 0);
+        const byDate   = new Map(entries.map(e => [e.date, e]));
+
+        monthTitle.textContent = new Intl.DateTimeFormat(T().intlLocale, { month: "long", year: "numeric" }).format(visibleMonth);
+        monthGrid.innerHTML = "";
+
+        for (let i = 0; i < firstDay.getDay(); i++) monthGrid.append(document.createElement("span"));
+
+        for (let day = 1; day <= lastDay.getDate(); day++) {
+          const date    = new Date(year, month, day);
+          const dateKey = localDateKey(date);
+          const entry   = byDate.get(dateKey);
+          const cell    = document.createElement("button");
+          cell.type = "button";
+          cell.textContent = String(day);
+          cell.setAttribute("aria-label", `${formatDate(dateKey)}${entry ? ", " + moodForScore(entry.score).name : T().noEntrySuffix}`);
+          cell.dataset.date = dateKey;
+          cell.addEventListener("click", () => loadEntryForEditing(dateKey));
+
+          if (entry) {
+            const mood = moodForScore(entry.score);
+            cell.classList.add("has-entry");
+            cell.style.setProperty("--day-color", mood.color);
+            cell.title = `${mood.name}: ${entry.memory || T().noNote}`;
+          } else {
+            cell.title = T().addEntryForDay;
+          }
+          if (dateKey === localDateKey(now)) cell.classList.add("is-today");
+          if (dateKey === editingDate) cell.classList.add("is-selected");
+          if (date > now) { cell.disabled = true; cell.title = ""; }
+          monthGrid.append(cell);
+        }
+      }
+
+      function renderEditState() {
+        const today    = localDateKey(new Date());
+        const isToday  = editingDate === today;
+        const hasEntry = getEntries().some(e => e.date === editingDate);
+        editStrip.hidden = isToday;
+        editLabel.textContent  = T().editingDate(formatDate(editingDate));
+        saveButton.textContent = isToday ? T().saveToday : hasEntry ? T().saveChanges : T().saveEntry;
+      }
+
+      function selectChip(chip, selected) {
+        const button = chipGrid.querySelector(`[data-chip="${chip}"]`);
+        if (!button) return;
+        if (selected) { selectedChips.add(chip); button.classList.add("is-selected"); }
+        else          { selectedChips.delete(chip); button.classList.remove("is-selected"); }
+      }
+
+      function setSelectedChips(chips) {
+        selectedChips.clear();
+        [...chipGrid.children].forEach(b => b.classList.remove("is-selected"));
+        chips.forEach(c => selectChip(c, true));
+      }
+
+      function loadEntryForEditing(date, scrollToEditor = false) {
+        if (date > localDateKey(new Date())) return;
+        const entry = getEntries().find(e => e.date === date);
+        editingDate = date;
+        updateMood(entry?.score || 4);
+        memoryInput.value = entry?.memory || "";
+        updateCharCounter();
+        setSelectedChips(entry?.chips || []);
+        setImagePreview(entry?.imageUrl || null);
+        renderEditState();
+        renderEntries();
+        if (scrollToEditor) document.querySelector(".journal-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      function startTodayEntry() {
+        editingDate = localDateKey(new Date());
+        clearDraft();
+        renderEditState();
+      }
+
+      function updateMood(score) {
+        const mood = moodForScore(score);
+        const changed = Number(score) !== lastMoodScore;
+        lastMoodScore = Number(score);
+
+        // Animate mood word on change
+        if (changed) {
+          moodWord.classList.remove("is-changing");
+          void moodWord.offsetWidth; // reflow
+          moodWord.classList.add("is-changing");
+          moodScore.classList.remove("is-bumping");
+          void moodScore.offsetWidth;
+          moodScore.classList.add("is-bumping");
+          // Fade hint
+          moodHint.classList.add("fading");
+          setTimeout(() => {
+            moodHint.textContent = mood.hint;
+            moodHint.classList.remove("fading");
+          }, 120);
+        } else {
+          moodHint.textContent = mood.hint;
+        }
+
+        moodWord.textContent  = mood.name;
+        moodScore.textContent = mood.score;
+        moodCard.style.setProperty("--mood", mood.color);
+        slider.value = mood.score;
+
+      }
+
+      function renderSparkline(entries) {
+        sparkline.innerHTML = "";
+        sparkline.style.gridTemplateColumns = "";
+        const { start } = getStatsWindow();
+        const byDate = new Map(entries.map(e => [e.date, e]));
+
+        if (statsRange === "year") {
+          const year = start.getFullYear();
+          sparkline.style.gridTemplateColumns = "repeat(12, minmax(0, 1fr))";
+          for (let month = 0; month < 12; month++) {
+            const monthEntries = entries.filter(e => {
+              const d = parseLocalDate(e.date);
+              return d.getFullYear() === year && d.getMonth() === month;
+            });
+            const avg  = monthEntries.length ? monthEntries.reduce((s, e) => s + Number(e.score), 0) / monthEntries.length : 0;
+            const mood = moodForScore(Math.round(avg || 4));
+            const bar  = document.createElement("span");
+            bar.style.height  = monthEntries.length ? `${16 + avg * 9}px` : "10px";
+            bar.style.opacity = monthEntries.length ? "1" : "0.18";
+            bar.style.setProperty("--bar-color", mood.color);
+            bar.style.animationDelay = `${month * 0.03}s`;
+            bar.title = `${new Intl.DateTimeFormat(T().intlLocale, { month: "short" }).format(new Date(year, month, 1))}: ${monthEntries.length ? avg.toFixed(1) : T().noEntries}`;
+            sparkline.append(bar);
+          }
+          return;
+        }
+
+        const days = statsRange === "week"
+          ? 7
+          : new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
+
+        sparkline.style.gridTemplateColumns = `repeat(${days}, minmax(0, 1fr))`;
+
+        for (let i = 0; i < days; i++) {
+          const date  = new Date(start);
+          date.setDate(start.getDate() + i);
+          const entry = byDate.get(localDateKey(date));
+          const mood  = moodForScore(entry?.score || 4);
+          const bar   = document.createElement("span");
+          bar.style.height  = entry ? `${16 + mood.score * 9}px` : "10px";
+          bar.style.opacity = entry ? "1" : "0.18";
+          bar.style.setProperty("--bar-color", mood.color);
+          bar.style.animationDelay = `${i * 0.03}s`;
+          bar.title = `${formatDate(localDateKey(date), "short")}: ${entry ? mood.name : T().noEntry}`;
+          sparkline.append(bar);
+        }
+      }
+
+      function renderEntries() {
+        // Scrub any stale blob:// imageUrls that got saved erroneously
+        let entries = getEntries();
+        const dirty = entries.some(e => e.imageUrl && !e.imageUrl.startsWith("data:"));
+        if (dirty) {
+          entries = entries.map(e => ({
+            ...e,
+            imageUrl: (e.imageUrl && e.imageUrl.startsWith("data:")) ? e.imageUrl : null
+          }));
+          setEntries(entries);
+        }
+        const visibleEntries = entries.filter(e => e.date === editingDate);
+
+        timeline.innerHTML = "";
+        entryCount.textContent = String(entries.length);
+        renderStats(entries);
+        renderSparkline(entries);
+        renderMonth(entries);
+        entries = visibleEntries;
+
+        if (entries.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "empty-state";
+          empty.textContent = T().noEntryFor(formatDate(editingDate));
+          timeline.append(empty);
+          return;
+        }
+
+        entries.forEach((entry, idx) => {
+          const mood = moodForScore(entry.score);
+          const node = template.content.firstElementChild.cloneNode(true);
+          node.style.setProperty("--entry-color", mood.color);
+          node.dataset.date = entry.date;
+          node.style.animationDelay = `${idx * 0.04}s`;
+
+          // Editing indicator + auto-expand since only one entry shows
+          if (entry.date === editingDate) node.classList.add("is-editing");
+          node.classList.add("is-open");
+
+          // Summary row
+          node.querySelector("h3").textContent = formatDate(entry.date);
+          node.querySelector(".entry-mood-tag").textContent = mood.name;
+
+          const validImage = entry.imageUrl && entry.imageUrl.startsWith("data:");
+          if (validImage) node.querySelector(".entry-photo-dot").hidden = false;
+
+          // Toggle expand on summary click
+          const summary = node.querySelector(".entry-summary");
+          summary.addEventListener("click", () => node.classList.toggle("is-open"));
+
+          // Image in body
+          const imageWrap = node.querySelector(".entry-image-wrap");
+          if (validImage) {
+            imageWrap.hidden = false;
+            const img = document.createElement("img");
+            img.className = "entry-image";
+            img.src = entry.imageUrl;
+            img.alt = "";
+            img.loading = "lazy";
+            imageWrap.append(img);
+          }
+
+          node.querySelector("p").textContent = entry.memory || T().noNote;
+
+          const chips = node.querySelector(".entry-chips");
+          entry.chips.forEach(chip => {
+            const item = document.createElement("span");
+            item.textContent = T().chips[chip] || chip;
+            chips.append(item);
+          });
+
+          const editButton = document.createElement("button");
+          editButton.className = "entry-edit-button";
+          editButton.type = "button";
+          editButton.textContent = T().edit;
+          editButton.addEventListener("click", (e) => {
+            e.stopPropagation();
+            loadEntryForEditing(entry.date, true);
+          });
+          node.querySelector(".entry-actions").append(editButton);
+
+          timeline.append(node);
+        });
+      }
+
+      async function saveEntry(event) {
+        event.preventDefault();
+        // Wait for any in-progress compression before saving
+        if (compressionPromise) {
+          saveButton.textContent = T().processing;
+          saveButton.disabled = true;
+          await compressionPromise;
+          saveButton.disabled = false;
+        }
+        // Never save a blob:// URL — it dies on reload
+        const imageToSave = currentImageUrl && currentImageUrl.startsWith("data:") ? currentImageUrl : null;
+        const entries = getEntries().filter(e => e.date !== editingDate);
+        entries.unshift({
+          date:      editingDate,
+          score:     Number(slider.value),
+          memory:    memoryInput.value.trim(),
+          chips:     [...selectedChips],
+          imageUrl:  imageToSave,
+        });
+        setEntries(entries);
+        if (typeof window._pushToCloud === "function") window._pushToCloud(entries);
+        renderEntries();
+        renderEditState();
+        saveButton.classList.remove("saved");
+        void saveButton.offsetWidth;
+        saveButton.classList.add("saved");
+      }
+
+      function clearDraft() {
+        memoryInput.value = "";
+        updateCharCounter();
+        setSelectedChips([]);
+        updateMood(4);
+        setImagePreview(null);
+      }
+
+      function updateCharCounter() {
+        const len = memoryInput.value.length;
+        charCounter.textContent = `${len} / 500`;
+        charCounter.className = "char-counter" + (len >= 500 ? " at-limit" : len >= 400 ? " near-limit" : "");
+      }
+
+
+
+      imageChangeBtn.addEventListener("click", () => imageFileInput.click());
+      imageRemoveBtn.addEventListener("click", () => setImagePreview(null));
+
+      function setImagePreview(url) {
+        currentImageUrl = url;
+        if (url) {
+          imagePreviewImg.src = url;
+          imagePreviewImg.hidden = false;
+          imageActionsBar.hidden = false;
+          imageUploadLabel.hidden = true;
+          imageUploadArea.classList.add("has-image");
+        } else {
+          imagePreviewImg.src = "";
+          imagePreviewImg.hidden = true;
+          imageActionsBar.hidden = true;
+          imageUploadLabel.hidden = false;
+          imageUploadArea.classList.remove("has-image");
+        }
+      }
+
+      function compressImage(file) {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          const url = URL.createObjectURL(file);
+          img.onload = () => {
+            URL.revokeObjectURL(url);
+            const MAX = 400;
+            const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+            const w = Math.round(img.naturalWidth  * scale);
+            const h = Math.round(img.naturalHeight * scale);
+            const canvas = document.createElement("canvas");
+            canvas.width  = w;
+            canvas.height = h;
+            canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL("image/jpeg", 0.5));
+          };
+          img.onerror = reject;
+          img.src = url;
+        });
+      }
+
+      async function handleImageFile(event) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        // Show blob preview instantly so user sees something
+        const blobUrl = URL.createObjectURL(file);
+        currentImageUrl = blobUrl;
+        setImagePreview(blobUrl);
+        imageUploading.hidden = false;
+
+        compressionPromise = (async () => {
+          try {
+            const base64 = await compressImage(file);
+            URL.revokeObjectURL(blobUrl);
+            currentImageUrl = base64;
+            if (imagePreviewImg) imagePreviewImg.src = base64;
+          } catch (e) {
+            currentImageUrl = null;
+          } finally {
+            imageUploading.hidden = true;
+            compressionPromise = null;
+          }
+        })();
+      }
+
+      memoryInput.addEventListener("input", updateCharCounter);
+
+      imageUploadArea.addEventListener("click", (e) => {
+        if (imageUploadArea.classList.contains("has-image")) return;
+        imageFileInput.click();
+      });
+
+      imageFileInput.addEventListener("change", handleImageFile);
+
+
+      chipGrid.addEventListener("click", event => {
+        const button = event.target.closest("button[data-chip]");
+        if (!button) return;
+        const chip = button.dataset.chip;
+        selectChip(chip, !selectedChips.has(chip));
+      });
+
+      slider.addEventListener("input", event => updateMood(event.target.value));
+      entryForm.addEventListener("submit", saveEntry);
+      clearButton.addEventListener("click", clearDraft);
+      newEntryButton.addEventListener("click", startTodayEntry);
+
+      document.getElementById("statsPrevBtn").addEventListener("click", () => {
+        statsOffset++;
+        renderEntries();
+      });
+      document.getElementById("statsNextBtn").addEventListener("click", () => {
+        if (statsOffset > 0) { statsOffset--; renderEntries(); }
+      });
+      document.getElementById("statsTodayBtn").addEventListener("click", () => {
+        statsOffset = 0;
+        renderEntries();
+      });
+
+      rangeTabs.addEventListener("click", event => {
+        const button = event.target.closest("button[data-range]");
+        if (!button) return;
+        statsRange = button.dataset.range;
+        statsOffset = 0;
+        [...rangeTabs.children].forEach(item => item.setAttribute("aria-pressed", String(item === button)));
+        renderEntries();
+      });
+
+      prevMonthButton.addEventListener("click", () => {
+        visibleMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() - 1, 1);
+        renderEntries();
+      });
+      nextMonthButton.addEventListener("click", () => {
+        visibleMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1);
+        renderEntries();
+      });
+      todayMonthButton.addEventListener("click", () => {
+        visibleMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+        renderEntries();
+      });
+
+      collapseMonthButton.addEventListener("click", () => {
+        const collapsed = calendarCard.classList.toggle("is-collapsed");
+        collapseMonthButton.textContent = collapsed ? T().expand : T().collapse;
+        collapseMonthButton.setAttribute("aria-expanded", String(!collapsed));
+        calendarBody.hidden = collapsed;
+      });
+
+      function updateTodayLabel() {
+        todayLabel.textContent = new Intl.DateTimeFormat(T().intlLocale, {
+          month: "short", day: "numeric", year: "numeric",
+        }).format(new Date());
+      }
+
+      // ── Language switching ──
+      // Translates static markup, refreshes cloud status wording, then
+      // re-renders everything that's locale-dependent (dates, mood names,
+      // calendar, sparkline, stats, entry list).
+      function applyLanguage(lang) {
+        CURRENT_LANG = lang;
+        window.CURRENT_LANG = lang;
+        localStorage.setItem(window.LANG_KEY, lang);
+        window.translateStaticDOM(lang);
+        if (typeof window._refreshCloudStatus === "function") window._refreshCloudStatus();
+        updateMood(slider.value);
+        renderEditState();
+        renderEntries();
+        updateTodayLabel();
+      }
+
+      langToggle.addEventListener("click", () => {
+        applyLanguage(CURRENT_LANG === "en" ? "he" : "en");
+      });
+
+      // ── Init ──
+      applyLanguage(CURRENT_LANG);
+      setImagePreview(null);
+
+      if ("serviceWorker" in navigator && window.location.protocol !== "file:") {
+        navigator.serviceWorker.register("sw.js").catch(() => {});
+      }
+    </script>
+  </body>
+</html>
