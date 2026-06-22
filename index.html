@@ -12,6 +12,9 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon-192.png" type="image/png" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;1,400&family=Frank+Ruhl+Libre:wght@300;400&display=swap" rel="stylesheet">
     <script>
       // Set lang/dir before first paint to avoid a flash of the wrong direction
       (function () {
@@ -962,6 +965,46 @@
         overflow: hidden;
         border-bottom: 1px solid var(--line);
       }
+
+      /* ── Keepsake logo ── */
+      .app-logo-wrapper {
+        display: flex;
+        flex-direction: column;
+      }
+      .app-logo {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        text-decoration: none;
+        line-height: 1;
+      }
+      .app-logo__en {
+        font-family: 'EB Garamond', Georgia, serif;
+        font-size: 1.6rem;
+        font-weight: 400;
+        font-style: italic;
+        color: #2B2825;
+        letter-spacing: 0.03em;
+      }
+      .app-logo__he {
+        font-family: 'Frank Ruhl Libre', 'David Libre', Georgia, serif;
+        font-size: 1rem;
+        font-weight: 300;
+        color: #8A8480;
+      }
+      .app-logo__ribbon {
+        display: block;
+        height: 2px;
+        border-radius: 1px;
+        background: linear-gradient(
+          to right,
+          #B8A9C9 0%,
+          #A8C4B8 33%,
+          #C4B8A0 66%,
+          #B8A9C9 100%
+        );
+        margin-top: 4px;
+      }
     </style>
   </head>
   <body>
@@ -969,7 +1012,13 @@
 
       <!-- Global topbar: always visible -->
       <header class="app-topbar">
-        <p class="eyebrow" data-i18n="eyebrowJournal">Keepsake</p>
+        <div class="app-logo-wrapper">
+          <a class="app-logo" href="./">
+            <span class="app-logo__en">keepsake</span>
+            <span class="app-logo__he">מזכרת</span>
+          </a>
+          <span class="app-logo__ribbon"></span>
+        </div>
         <div class="topbar-actions">
           <time id="todayLabel" class="date-pill"></time>
           <button type="button" id="langToggle" class="lang-toggle"></button>
