@@ -1,7 +1,32 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="104" fill="#55756b"/>
-  <circle cx="256" cy="256" r="150" fill="#fffaf1"/>
-  <path fill="#c47f5b" d="M256 122c38 0 74 16 100 45 24 27 36 62 33 98-4 68-60 123-133 123s-129-55-133-123c-3-36 9-71 33-98 26-29 62-45 100-45Zm-70 139c13 38 39 57 70 57s57-19 70-57H186Z"/>
-  <circle cx="204" cy="222" r="18" fill="#26231f"/>
-  <circle cx="308" cy="222" r="18" fill="#26231f"/>
+  <defs>
+    <linearGradient id="ribbon" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#B8A9C9"/>
+      <stop offset="33%"  stop-color="#A8C4B8"/>
+      <stop offset="66%"  stop-color="#C4B8A0"/>
+      <stop offset="100%" stop-color="#B8A9C9"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%"   stop-color="#f7f2ea"/>
+      <stop offset="100%" stop-color="#ede8de"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Warm parchment background -->
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+
+  <!-- Italic serif "k" lettermark -->
+  <text
+    x="256"
+    y="350"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="300"
+    font-style="italic"
+    font-weight="400"
+    fill="#2B2825"
+    text-anchor="middle"
+  >k</text>
+
+  <!-- Signature gradient ribbon -->
+  <rect x="96" y="382" width="320" height="14" rx="7" fill="url(#ribbon)"/>
 </svg>
