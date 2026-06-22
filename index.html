@@ -962,6 +962,11 @@
         border-bottom: 1px solid var(--line);
       }
 
+      /* ── Calendar inline editor ── */
+      #cal-editor-slot { display: contents; }
+      #cal-editor-slot[hidden] { display: none !important; }
+      #cal-editor-slot > .journal-panel { display: block; }
+
       /* ── Keepsake logo ── */
       .app-logo-wrapper {
         display: flex;
@@ -1150,6 +1155,7 @@
             <div class="month-grid" id="monthGrid" data-i18n-aria-label="monthGridAriaLabel"></div>
           </div>
         </div>
+        <div id="cal-editor-slot" hidden></div>
         <div class="timeline" id="timeline"></div>
       </div>
 
@@ -1869,7 +1875,7 @@
           cell.textContent = String(day);
           cell.setAttribute("aria-label", `${formatDate(dateKey)}${entry ? ", " + moodForScore(entry.score).name : T().noEntrySuffix}`);
           cell.dataset.date = dateKey;
-          cell.addEventListener("click", () => loadEntryForEditing(dateKey));
+          cell.addEventListener("click", () => openCalendarEditor(dateKey));
 
           if (entry) {
             const mood = moodForScore(entry.score);
@@ -2083,7 +2089,7 @@
           editButton.textContent = T().edit;
           editButton.addEventListener("click", (e) => {
             e.stopPropagation();
-            loadEntryForEditing(entry.date, true);
+            openCalendarEditor(entry.date);
           });
           node.querySelector(".entry-actions").append(editButton);
 
@@ -2117,6 +2123,9 @@
         saveButton.classList.remove("saved");
         void saveButton.offsetWidth;
         saveButton.classList.add("saved");
+        if (typeof closeCalendarEditor === "function" && _calEditorOpen) {
+          setTimeout(closeCalendarEditor, 420);
+        }
       }
 
       function clearDraft() {
@@ -2221,7 +2230,10 @@
       slider.addEventListener("input", event => updateMood(event.target.value));
       entryForm.addEventListener("submit", saveEntry);
       clearButton.addEventListener("click", clearDraft);
-      newEntryButton.addEventListener("click", startTodayEntry);
+      newEntryButton.addEventListener("click", () => {
+        if (_calEditorOpen) { closeCalendarEditor(); switchTab("today"); }
+        startTodayEntry();
+      });
 
       document.getElementById("statsPrevBtn").addEventListener("click", () => {
         statsOffset++;
@@ -2292,8 +2304,32 @@
 
       // ── Tab navigation ──
       const TAB_KEY = "keepsake-active-tab";
+      const calEditorSlot  = document.getElementById("cal-editor-slot");
+      const todayPanel     = document.getElementById("tab-today");
+      const tabInsights    = document.getElementById("tab-insights");
+      let _calEditorOpen   = false;
+
+      function openCalendarEditor(date) {
+        loadEntryForEditing(date);
+        if (!_calEditorOpen) {
+          calEditorSlot.appendChild(todayPanel);
+          calEditorSlot.hidden = false;
+          _calEditorOpen = true;
+        }
+        requestAnimationFrame(() =>
+          calEditorSlot.scrollIntoView({ behavior: "smooth", block: "nearest" })
+        );
+      }
+
+      function closeCalendarEditor() {
+        if (!_calEditorOpen) return;
+        tabInsights.parentNode.insertBefore(todayPanel, tabInsights);
+        calEditorSlot.hidden = true;
+        _calEditorOpen = false;
+      }
 
       function switchTab(tabId) {
+        if (_calEditorOpen && tabId !== "calendar") closeCalendarEditor();
         document.querySelectorAll(".tab-panel").forEach(panel => {
           panel.classList.toggle("is-active", panel.id === "tab-" + tabId);
         });
