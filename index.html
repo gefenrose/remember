@@ -228,14 +228,19 @@
         font-size: 0.82rem;
       }
 
-      /* ── Language toggle ── */
+      /* ── Language toggle + sync toggle ── */
       .topbar-actions {
         display: flex;
         flex-direction: column;
         align-items: flex-end;
         gap: 6px;
       }
-      .lang-toggle {
+      .topbar-controls {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .lang-toggle, .sync-toggle {
         border: none;
         border-radius: 0;
         padding: 2px 0;
@@ -248,8 +253,19 @@
         text-underline-offset: 3px;
         text-decoration-color: var(--line);
         transition: color 0.15s;
+        font-family: inherit;
       }
-      .lang-toggle:hover { color: var(--ink); }
+      .lang-toggle:hover, .sync-toggle:hover { color: var(--ink); }
+      .sync-toggle[aria-expanded="true"] { color: var(--ink); }
+
+      /* ── Sync drawer ── */
+      .sync-drawer {
+        display: grid;
+        gap: 12px;
+        margin-bottom: 16px;
+        animation: slideUp 0.25s cubic-bezier(0.22,1,0.36,1) both;
+      }
+      .sync-drawer[hidden] { display: none; }
 
       /* ── Mood card ── */
       .mood-card {
@@ -1022,15 +1038,59 @@
         </div>
         <div class="topbar-actions">
           <time id="todayLabel" class="date-pill"></time>
-          <button type="button" id="langToggle" class="lang-toggle"></button>
+          <div class="topbar-controls">
+            <button type="button" id="syncToggle" class="sync-toggle" aria-expanded="false" data-i18n="tabSync">Sync</button>
+            <button type="button" id="langToggle" class="lang-toggle"></button>
+          </div>
         </div>
       </header>
 
       <!-- Tab navigation -->
+      <!-- Sync drawer: hidden by default, toggled from topbar -->
+      <div id="sync-drawer" class="sync-drawer" hidden>
+        <!-- Status -->
+        <div class="sync-card">
+          <div class="cloud-status">
+            <span class="cloud-dot" id="cloudDot"></span>
+            <span id="cloudStatus" data-i18n="settingUpCloud">Setting up cloud…</span>
+          </div>
+        </div>
+
+        <!-- Multi-device access -->
+        <div class="sync-card" id="syncDeviceCard">
+          <p class="eyebrow" data-i18n="syncDevicesEyebrow">Use on another device</p>
+          <p class="sync-help" data-i18n="syncDevicesHelp">Open Keepsake on your other device and enter the code below to access the same journal.</p>
+
+          <p class="sync-label" data-i18n="syncYourCode">Your code</p>
+          <div class="sync-code-row">
+            <span class="cloud-id" id="cloudId">—</span>
+            <button class="cloud-btn" id="cloudCopyBtn" data-i18n="cloudCopyText">Copy code</button>
+          </div>
+
+          <div class="sync-or"><span data-i18n="syncOr">or connect to a code from another device</span></div>
+
+          <div class="sync-link-row">
+            <input type="text" id="syncCodeInput" class="sync-code-input"
+                   data-i18n-placeholder="syncCodeInputPlaceholder"
+                   placeholder="Paste the code here"
+                   autocomplete="off" spellcheck="false" />
+            <button class="cloud-btn" id="cloudLinkBtn" data-i18n="cloudLinkText">Connect</button>
+          </div>
+        </div>
+
+        <!-- Data management -->
+        <div class="sync-card">
+          <p class="eyebrow" data-i18n="syncDataEyebrow">Your data</p>
+          <div class="sync-data-btns">
+            <button class="cloud-btn" id="exportBtn" data-i18n="exportText">Download a copy</button>
+            <button class="cloud-btn cloud-btn-danger" id="deleteAllBtn" data-i18n="deleteAll">Delete everything</button>
+          </div>
+        </div>
+      </div>
+
       <nav class="tab-nav" role="tablist" data-i18n-aria-label="tabNavAriaLabel">
-        <button type="button" role="tab" data-tab="calendar" aria-selected="true" data-i18n="tabCalendar">Calendar</button>
+        <button type="button" role="tab" data-tab="calendar" aria-selected="true" data-i18n="tabCalendar">Memories</button>
         <button type="button" role="tab" data-tab="insights" aria-selected="false" data-i18n="tabInsights">Insights</button>
-        <button type="button" role="tab" data-tab="sync" aria-selected="false" data-i18n="tabSync">Sync</button>
       </nav>
 
       <!-- Today tab: mood slider + entry form -->
@@ -1158,49 +1218,6 @@
         <div class="timeline" id="timeline"></div>
       </div>
 
-      <!-- Sync tab: cloud backup, export, delete -->
-      <div id="tab-sync" class="tab-panel tab-panel--stacked" role="tabpanel">
-
-        <!-- Status -->
-        <div class="sync-card">
-          <div class="cloud-status">
-            <span class="cloud-dot" id="cloudDot"></span>
-            <span id="cloudStatus" data-i18n="settingUpCloud">Setting up cloud…</span>
-          </div>
-        </div>
-
-        <!-- Multi-device access -->
-        <div class="sync-card" id="syncDeviceCard">
-          <p class="eyebrow" data-i18n="syncDevicesEyebrow">Use on another device</p>
-          <p class="sync-help" data-i18n="syncDevicesHelp">Open Keepsake on your other device, go to Sync, and enter the code below to access the same journal.</p>
-
-          <p class="sync-label" data-i18n="syncYourCode">Your code</p>
-          <div class="sync-code-row">
-            <span class="cloud-id" id="cloudId">—</span>
-            <button class="cloud-btn" id="cloudCopyBtn" data-i18n="cloudCopyText">Copy code</button>
-          </div>
-
-          <div class="sync-or"><span data-i18n="syncOr">or connect to a code from another device</span></div>
-
-          <div class="sync-link-row">
-            <input type="text" id="syncCodeInput" class="sync-code-input"
-                   data-i18n-placeholder="syncCodeInputPlaceholder"
-                   placeholder="Paste the code here"
-                   autocomplete="off" spellcheck="false" />
-            <button class="cloud-btn" id="cloudLinkBtn" data-i18n="cloudLinkText">Connect</button>
-          </div>
-        </div>
-
-        <!-- Data management -->
-        <div class="sync-card">
-          <p class="eyebrow" data-i18n="syncDataEyebrow">Your data</p>
-          <div class="sync-data-btns">
-            <button class="cloud-btn" id="exportBtn" data-i18n="exportText">Download a copy</button>
-            <button class="cloud-btn cloud-btn-danger" id="deleteAllBtn" data-i18n="deleteAll">Delete everything</button>
-          </div>
-        </div>
-
-      </div>
 
     </main>
 
@@ -1351,7 +1368,7 @@
           langToggleAriaLabel: "Switch to Hebrew",
           settingUpCloud: "Setting up cloud…",
           syncDevicesEyebrow: "Use on another device",
-          syncDevicesHelp: "Open Keepsake on your other device, go to Sync, and enter the code below to access the same journal.",
+          syncDevicesHelp: "Open Keepsake on your other device and enter the code below to access the same journal.",
           syncYourCode: "Your code",
           syncOr: "or connect to a code from another device",
           syncCodeInputPlaceholder: "Paste the code here",
@@ -1359,7 +1376,7 @@
           tabNavAriaLabel: "Main sections",
           tabToday: "Today",
           tabInsights: "Insights",
-          tabCalendar: "Calendar",
+          tabCalendar: "Memories",
           tabSync: "Sync",
         },
         he: {
@@ -1446,7 +1463,7 @@
           langToggleAriaLabel: "החלפה לאנגלית",
           settingUpCloud: "מגדיר חיבור לעננה…",
           syncDevicesEyebrow: "שימוש במכשיר אחר",
-          syncDevicesHelp: "פתח/י את מזכרת במכשיר האחר, לך/כי ללשונית הסנכרון, והזן/י את הקוד שלמטה.",
+          syncDevicesHelp: "פתח/י את מזכרת במכשיר האחר והזן/י את הקוד שלמטה.",
           syncYourCode: "הקוד שלך",
           syncOr: "או התחבר/י לקוד ממכשיר אחר",
           syncCodeInputPlaceholder: "הדבק/י את הקוד כאן",
@@ -1454,7 +1471,7 @@
           tabNavAriaLabel: "ניווט ראשי",
           tabToday: "היום",
           tabInsights: "תובנות",
-          tabCalendar: "לוח שנה",
+          tabCalendar: "זיכרונות",
           tabSync: "סנכרון",
         },
       };
@@ -2405,8 +2422,18 @@ function updateMood(score) {
         if (btn) switchTab(btn.dataset.tab);
       });
 
+      // ── Sync drawer toggle ──
+      const syncToggle = document.getElementById("syncToggle");
+      const syncDrawer = document.getElementById("sync-drawer");
+      syncToggle.addEventListener("click", () => {
+        const open = syncDrawer.hidden;
+        syncDrawer.hidden = !open;
+        syncToggle.setAttribute("aria-expanded", String(open));
+      });
+
       // ── Init ──
-      switchTab(localStorage.getItem(TAB_KEY) || "calendar");
+      const _savedTab = localStorage.getItem(TAB_KEY);
+      switchTab(["calendar", "insights"].includes(_savedTab) ? _savedTab : "calendar");
       applyLanguage(CURRENT_LANG);
       updateCalViewUI();
       setImagePreview(null);
