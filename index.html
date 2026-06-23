@@ -1888,7 +1888,7 @@
           cell.textContent = String(day);
           cell.setAttribute("aria-label", `${formatDate(dateKey)}${entry ? ", " + moodForScore(entry.score).name : T().noEntrySuffix}`);
           cell.dataset.date = dateKey;
-          cell.addEventListener("click", () => openForEditing(dateKey));
+          cell.addEventListener("click", () => selectDateInMemories(dateKey));
 
           if (entry) {
             const mood = moodForScore(entry.score);
@@ -1933,7 +1933,7 @@
           cell.textContent = String(date.getDate());
           cell.setAttribute("aria-label", `${formatDate(dateKey)}${entry ? ", " + moodForScore(entry.score).name : T().noEntrySuffix}`);
           cell.dataset.date = dateKey;
-          cell.addEventListener("click", () => openForEditing(dateKey));
+          cell.addEventListener("click", () => selectDateInMemories(dateKey));
 
           if (entry) {
             const mood = moodForScore(entry.score);
@@ -2379,6 +2379,15 @@ function updateMood(score) {
 
       // ── Tab navigation ──
       const TAB_KEY = "keepsake-active-tab";
+
+      function selectDateInMemories(date) {
+        editingDate = date;
+        renderEntries();
+        requestAnimationFrame(() => {
+          const node = timeline.querySelector(`[data-date="${date}"]`);
+          if (node) node.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        });
+      }
 
       function openForEditing(date) {
         loadEntryForEditing(date);
