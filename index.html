@@ -78,6 +78,14 @@
         from { transform: rotate(0deg); }
         to   { transform: rotate(360deg); }
       }
+      @keyframes slideDown {
+        from { opacity: 1; transform: translateY(0); }
+        to   { opacity: 0; transform: translateY(32px); }
+      }
+      @keyframes fadeOut {
+        from { opacity: 1; }
+        to   { opacity: 0; }
+      }
 
       @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
@@ -141,8 +149,15 @@
 
       /* ── Tab panels ── */
       .tab-panel { display: none; }
-      .tab-panel.is-active { display: block; }
-      .tab-panel--stacked.is-active { display: grid; gap: 16px; }
+      .tab-panel.is-active {
+        display: block;
+        animation: slideUp 0.34s cubic-bezier(0.22,1,0.36,1) both;
+      }
+      .tab-panel--stacked.is-active {
+        display: grid;
+        gap: 16px;
+        animation: slideUp 0.34s cubic-bezier(0.22,1,0.36,1) both;
+      }
 
       /* H1 inside the Today tab panel */
       .journal-panel > h1 { margin-bottom: 0; }
@@ -152,7 +167,6 @@
         border: 1px solid var(--line);
         border-radius: 8px;
         padding: clamp(22px, 4vw, 42px);
-        animation: slideUp 0.45s cubic-bezier(0.22,1,0.36,1) both;
       }
 
       .month-header, .actions, .entry-head {
@@ -977,6 +991,16 @@
         border-bottom: 1px solid var(--line);
       }
 
+      /* ── Calendar grid transition ── */
+      #monthGrid { animation: none; }
+      #monthGrid.cal-animating { animation: fadeIn 0.16s ease both; }
+
+      /* ── Sync drawer close ── */
+      .sync-drawer.is-closing {
+        animation: fadeOut 0.18s ease both;
+        pointer-events: none;
+      }
+
       /* ── Day view overlay ── */
       #day-view {
         position: fixed;
@@ -988,6 +1012,13 @@
         animation: fadeIn 0.18s ease both;
       }
       #day-view[hidden] { display: none; }
+      #day-view.is-closing {
+        animation: fadeOut 0.22s ease both;
+        pointer-events: none;
+      }
+      .day-view-card.is-closing {
+        animation: slideDown 0.22s cubic-bezier(0.4,0,1,1) both;
+      }
       .day-view-card {
         width: min(720px, 100%);
         margin: 0 auto;
@@ -1938,6 +1969,9 @@
 
         monthTitle.textContent = new Intl.DateTimeFormat(T().intlLocale, { month: "long", year: "numeric" }).format(visibleMonth);
         monthGrid.innerHTML = "";
+        monthGrid.classList.remove("cal-animating");
+        void monthGrid.offsetWidth;
+        monthGrid.classList.add("cal-animating");
 
         for (let i = 0; i < firstDay.getDay(); i++) monthGrid.append(document.createElement("span"));
 
@@ -1984,6 +2018,9 @@
           `${wkStart.toLocaleDateString(T().intlLocale, fmt)} – ${wkEnd.toLocaleDateString(T().intlLocale, fmt)}`;
 
         monthGrid.innerHTML = "";
+        monthGrid.classList.remove("cal-animating");
+        void monthGrid.offsetWidth;
+        monthGrid.classList.add("cal-animating");
 
         for (let i = 0; i < 7; i++) {
           const date    = new Date(wkStart);
@@ -2527,7 +2564,15 @@ function updateMood(score) {
       }
 
       function closeDayView() {
-        document.getElementById("day-view").hidden = true;
+        const overlay = document.getElementById("day-view");
+        const card    = document.getElementById("dayViewCard");
+        overlay.classList.add("is-closing");
+        card.classList.add("is-closing");
+        setTimeout(() => {
+          overlay.hidden = true;
+          overlay.classList.remove("is-closing");
+          card.classList.remove("is-closing");
+        }, 220);
       }
 
       function openForEditing(date) {
@@ -2565,9 +2610,17 @@ function updateMood(score) {
       const syncToggle = document.getElementById("syncToggle");
       const syncDrawer = document.getElementById("sync-drawer");
       syncToggle.addEventListener("click", () => {
-        const open = syncDrawer.hidden;
-        syncDrawer.hidden = !open;
-        syncToggle.setAttribute("aria-expanded", String(open));
+        if (!syncDrawer.hidden) {
+          syncDrawer.classList.add("is-closing");
+          setTimeout(() => {
+            syncDrawer.hidden = true;
+            syncDrawer.classList.remove("is-closing");
+            syncToggle.setAttribute("aria-expanded", "false");
+          }, 180);
+        } else {
+          syncDrawer.hidden = false;
+          syncToggle.setAttribute("aria-expanded", "true");
+        }
       });
 
       // ── Init ──
