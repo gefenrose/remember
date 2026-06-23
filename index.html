@@ -977,12 +977,6 @@
         border-bottom: 1px solid var(--line);
       }
 
-      /* ── Editor portal (hidden by default, shown in calendar slot) ── */
-      .editor-portal { display: none; }
-      #cal-editor-slot { display: contents; }
-      #cal-editor-slot[hidden] { display: none !important; }
-      #cal-editor-slot:not([hidden]) > .editor-portal { display: block; }
-
       /* ── Keepsake logo ── */
       .app-logo-wrapper {
         display: flex;
@@ -1089,12 +1083,13 @@
       </div>
 
       <nav class="tab-nav" role="tablist" data-i18n-aria-label="tabNavAriaLabel">
+        <button type="button" role="tab" data-tab="today" aria-selected="false" data-i18n="tabToday">Today</button>
         <button type="button" role="tab" data-tab="calendar" aria-selected="true" data-i18n="tabCalendar">Memories</button>
         <button type="button" role="tab" data-tab="insights" aria-selected="false" data-i18n="tabInsights">Insights</button>
       </nav>
 
       <!-- Today tab: mood slider + entry form -->
-      <section id="tab-today" class="editor-portal journal-panel" aria-label="Journal editor">
+      <section id="tab-today" class="tab-panel journal-panel" role="tabpanel" aria-label="Journal editor">
         <h1 data-i18n="heading">How was today?</h1>
 
         <div class="mood-card" id="moodCard">
@@ -1214,7 +1209,6 @@
             <div class="month-grid" id="monthGrid" data-i18n-aria-label="monthGridAriaLabel"></div>
           </div>
         </div>
-        <div id="cal-editor-slot" hidden></div>
         <div class="timeline" id="timeline"></div>
       </div>
 
@@ -1894,7 +1888,7 @@
           cell.textContent = String(day);
           cell.setAttribute("aria-label", `${formatDate(dateKey)}${entry ? ", " + moodForScore(entry.score).name : T().noEntrySuffix}`);
           cell.dataset.date = dateKey;
-          cell.addEventListener("click", () => openCalendarEditor(dateKey));
+          cell.addEventListener("click", () => openForEditing(dateKey));
 
           if (entry) {
             const mood = moodForScore(entry.score);
@@ -1939,7 +1933,7 @@
           cell.textContent = String(date.getDate());
           cell.setAttribute("aria-label", `${formatDate(dateKey)}${entry ? ", " + moodForScore(entry.score).name : T().noEntrySuffix}`);
           cell.dataset.date = dateKey;
-          cell.addEventListener("click", () => openCalendarEditor(dateKey));
+          cell.addEventListener("click", () => openForEditing(dateKey));
 
           if (entry) {
             const mood = moodForScore(entry.score);
@@ -2081,33 +2075,40 @@ function updateMood(score) {
           }));
           setEntries(entries);
         }
-        const visibleEntries = entries.filter(e => e.date === editingDate);
 
         timeline.innerHTML = "";
         entryCount.textContent = String(entries.length);
         renderStats(entries);
         renderSparkline(entries);
         calView === "week" ? renderWeek(entries) : renderMonth(entries);
-        entries = visibleEntries;
 
         if (entries.length === 0) {
           const empty = document.createElement("div");
           empty.className = "empty-state";
-          empty.textContent = T().noEntryFor(formatDate(editingDate));
+          empty.textContent = T().noEntries;
           timeline.append(empty);
           return;
         }
 
+        let currentMonth = null;
         entries.forEach((entry, idx) => {
+          const entryMonth = entry.date.slice(0, 7);
+          if (entryMonth !== currentMonth) {
+            currentMonth = entryMonth;
+            const header = document.createElement("div");
+            header.className = "timeline-month-header";
+            header.textContent = new Intl.DateTimeFormat(T().intlLocale, { month: "long", year: "numeric" }).format(parseLocalDate(entry.date));
+            timeline.append(header);
+          }
+
           const mood = moodForScore(entry.score);
           const node = template.content.firstElementChild.cloneNode(true);
           node.style.setProperty("--entry-color", mood.color);
           node.dataset.date = entry.date;
           node.style.animationDelay = `${idx * 0.04}s`;
 
-          // Editing indicator + auto-expand since only one entry shows
-          if (entry.date === editingDate) node.classList.add("is-editing");
           node.classList.add("is-open");
+          if (entry.date === editingDate) node.classList.add("is-editing");
 
           // Summary row
           node.querySelector("h3").textContent = formatDate(entry.date);
@@ -2147,7 +2148,7 @@ function updateMood(score) {
           editButton.textContent = T().edit;
           editButton.addEventListener("click", (e) => {
             e.stopPropagation();
-            openCalendarEditor(entry.date);
+            openForEditing(entry.date);
           });
           node.querySelector(".entry-actions").append(editButton);
 
@@ -2181,9 +2182,6 @@ function updateMood(score) {
         saveButton.classList.remove("saved");
         void saveButton.offsetWidth;
         saveButton.classList.add("saved");
-        if (typeof closeCalendarEditor === "function" && _calEditorOpen) {
-          setTimeout(closeCalendarEditor, 420);
-        }
       }
 
       function clearDraft() {
@@ -2289,8 +2287,7 @@ function updateMood(score) {
       entryForm.addEventListener("submit", saveEntry);
       clearButton.addEventListener("click", clearDraft);
       newEntryButton.addEventListener("click", () => {
-        closeCalendarEditor();
-        openCalendarEditor(localDateKey(new Date()));
+        loadEntryForEditing(localDateKey(new Date()));
       });
 
       document.getElementById("statsPrevBtn").addEventListener("click", () => {
@@ -2382,32 +2379,16 @@ function updateMood(score) {
 
       // ── Tab navigation ──
       const TAB_KEY = "keepsake-active-tab";
-      const calEditorSlot  = document.getElementById("cal-editor-slot");
-      const todayPanel     = document.getElementById("tab-today");
-      const tabInsights    = document.getElementById("tab-insights");
-      let _calEditorOpen   = false;
 
-      function openCalendarEditor(date) {
+      function openForEditing(date) {
         loadEntryForEditing(date);
-        if (!_calEditorOpen) {
-          calEditorSlot.appendChild(todayPanel);
-          calEditorSlot.hidden = false;
-          _calEditorOpen = true;
-        }
+        switchTab("today");
         requestAnimationFrame(() =>
-          calEditorSlot.scrollIntoView({ behavior: "smooth", block: "nearest" })
+          document.getElementById("tab-today").scrollIntoView({ behavior: "smooth", block: "start" })
         );
       }
 
-      function closeCalendarEditor() {
-        if (!_calEditorOpen) return;
-        tabInsights.parentNode.insertBefore(todayPanel, tabInsights);
-        calEditorSlot.hidden = true;
-        _calEditorOpen = false;
-      }
-
       function switchTab(tabId) {
-        if (_calEditorOpen && tabId !== "calendar") closeCalendarEditor();
         document.querySelectorAll(".tab-panel").forEach(panel => {
           panel.classList.toggle("is-active", panel.id === "tab-" + tabId);
         });
@@ -2433,10 +2414,10 @@ function updateMood(score) {
 
       // ── Init ──
       const _savedTab = localStorage.getItem(TAB_KEY);
-      switchTab(["calendar", "insights"].includes(_savedTab) ? _savedTab : "calendar");
+      switchTab(["today", "calendar", "insights"].includes(_savedTab) ? _savedTab : "today");
       applyLanguage(CURRENT_LANG);
       updateCalViewUI();
-      setImagePreview(null);
+      loadEntryForEditing(localDateKey(new Date()));
 
       if ("serviceWorker" in navigator && window.location.protocol !== "file:") {
         navigator.serviceWorker.register("sw.js").catch(() => {});
