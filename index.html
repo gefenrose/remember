@@ -977,6 +977,63 @@
         border-bottom: 1px solid var(--line);
       }
 
+      /* ── Day view overlay ── */
+      #day-view {
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        display: flex;
+        align-items: flex-end;
+        background: rgba(43, 40, 37, 0.38);
+        animation: fadeIn 0.18s ease both;
+      }
+      #day-view[hidden] { display: none; }
+      .day-view-card {
+        width: min(720px, 100%);
+        margin: 0 auto;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-bottom: none;
+        border-radius: 12px 12px 0 0;
+        padding: clamp(22px, 4vw, 36px);
+        max-height: 82vh;
+        overflow-y: auto;
+        animation: slideUp 0.28s cubic-bezier(0.22,1,0.36,1) both;
+      }
+      .day-view-card .entry {
+        border: none;
+        border-radius: 0;
+        background: transparent;
+        animation: none;
+        box-shadow: none;
+      }
+      .day-view-card .entry-summary { cursor: default; }
+      .day-view-card .entry-summary:hover { background: transparent; }
+      .day-view-card .entry-chevron { display: none; }
+      .day-view-entry-header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+      .day-view-date {
+        font-family: 'EB Garamond', Georgia, serif;
+        font-style: italic;
+        font-size: clamp(1.5rem, 5vw, 2.4rem);
+        font-weight: 400;
+        line-height: 1;
+        color: var(--ink);
+        margin: 0;
+      }
+      .day-view-no-entry {
+        color: var(--muted);
+        font-style: italic;
+        font-family: 'EB Garamond', Georgia, serif;
+        font-size: 1.15rem;
+        margin: 0 0 24px;
+      }
+
       /* ── Keepsake logo ── */
       .app-logo-wrapper {
         display: flex;
@@ -1212,6 +1269,10 @@
         <div class="timeline" id="timeline"></div>
       </div>
 
+      <!-- Day view overlay: shown when a calendar date is tapped -->
+      <div id="day-view" hidden role="dialog" aria-modal="true">
+        <div class="day-view-card" id="dayViewCard"></div>
+      </div>
 
     </main>
 
@@ -1766,7 +1827,8 @@
       const charCounter       = document.querySelector("#charCounter");
 
       const selectedChips = new Set();
-      let editingDate   = localDateKey(new Date());
+      let editingDate   = localDateKey(new Date()); // date loaded in Today editor
+      let selectedDate  = null;                      // date selected in calendar (day view)
       let currentImageUrl = null;
       let compressionPromise = null;
       let visibleMonth  = new Date();
@@ -1888,7 +1950,7 @@
           cell.textContent = String(day);
           cell.setAttribute("aria-label", `${formatDate(dateKey)}${entry ? ", " + moodForScore(entry.score).name : T().noEntrySuffix}`);
           cell.dataset.date = dateKey;
-          cell.addEventListener("click", () => selectDateInMemories(dateKey));
+          cell.addEventListener("click", () => showDayView(dateKey));
 
           if (entry) {
             const mood = moodForScore(entry.score);
@@ -1899,7 +1961,7 @@
             cell.title = T().addEntryForDay;
           }
           if (dateKey === localDateKey(now)) cell.classList.add("is-today");
-          if (dateKey === editingDate) cell.classList.add("is-selected");
+          if (dateKey === selectedDate) cell.classList.add("is-selected");
           if (date > now) { cell.disabled = true; cell.title = ""; }
           monthGrid.append(cell);
         }
@@ -1933,7 +1995,7 @@
           cell.textContent = String(date.getDate());
           cell.setAttribute("aria-label", `${formatDate(dateKey)}${entry ? ", " + moodForScore(entry.score).name : T().noEntrySuffix}`);
           cell.dataset.date = dateKey;
-          cell.addEventListener("click", () => selectDateInMemories(dateKey));
+          cell.addEventListener("click", () => showDayView(dateKey));
 
           if (entry) {
             const mood = moodForScore(entry.score);
@@ -2380,13 +2442,92 @@ function updateMood(score) {
       // ── Tab navigation ──
       const TAB_KEY = "keepsake-active-tab";
 
-      function selectDateInMemories(date) {
-        editingDate = date;
-        renderEntries();
-        requestAnimationFrame(() => {
-          const node = timeline.querySelector(`[data-date="${date}"]`);
-          if (node) node.scrollIntoView({ behavior: "smooth", block: "nearest" });
-        });
+      function showDayView(date) {
+        selectedDate = date;
+        calView === "week" ? renderWeek(getEntries()) : renderMonth(getEntries());
+
+        const entry = getEntries().find(e => e.date === date);
+        const card  = document.getElementById("dayViewCard");
+        card.innerHTML = "";
+
+        // Date heading
+        const header = document.createElement("div");
+        header.className = "day-view-entry-header";
+        const dateHeading = document.createElement("h2");
+        dateHeading.className = "day-view-date";
+        dateHeading.textContent = formatDate(date);
+        header.append(dateHeading);
+
+        if (entry) {
+          const mood = moodForScore(entry.score);
+          const moodTag = document.createElement("span");
+          moodTag.className = "entry-mood-tag";
+          moodTag.textContent = mood.name;
+          moodTag.style.color = mood.color;
+          moodTag.style.fontWeight = "500";
+          header.append(moodTag);
+          card.append(header);
+
+          const validImage = entry.imageUrl && entry.imageUrl.startsWith("data:");
+          if (validImage) {
+            const imgWrap = document.createElement("div");
+            imgWrap.className = "entry-image-wrap";
+            imgWrap.style.marginBottom = "16px";
+            imgWrap.style.borderRadius = "6px";
+            imgWrap.style.overflow = "hidden";
+            const img = document.createElement("img");
+            img.className = "entry-image";
+            img.src = entry.imageUrl;
+            img.alt = "";
+            imgWrap.append(img);
+            card.append(imgWrap);
+          }
+
+          if (entry.memory) {
+            const p = document.createElement("p");
+            p.style.cssText = "margin:0 0 14px;line-height:1.55;color:var(--ink);";
+            p.textContent = entry.memory;
+            card.append(p);
+          }
+
+          if (entry.chips?.length) {
+            const chips = document.createElement("div");
+            chips.className = "entry-chips";
+            chips.style.marginBottom = "20px";
+            entry.chips.forEach(chip => {
+              const item = document.createElement("span");
+              item.textContent = T().chips[chip] || chip;
+              chips.append(item);
+            });
+            card.append(chips);
+          }
+
+          const editBtn = document.createElement("button");
+          editBtn.className = "primary-button";
+          editBtn.type = "button";
+          editBtn.textContent = T().edit;
+          editBtn.addEventListener("click", () => { closeDayView(); openForEditing(date); });
+          card.append(editBtn);
+        } else {
+          card.append(header);
+          const msg = document.createElement("p");
+          msg.className = "day-view-no-entry";
+          msg.textContent = T().noEntryFor(formatDate(date));
+          card.append(msg);
+
+          const addBtn = document.createElement("button");
+          addBtn.className = "primary-button";
+          addBtn.type = "button";
+          addBtn.textContent = T().addEntryForDay;
+          addBtn.addEventListener("click", () => { closeDayView(); openForEditing(date); });
+          card.append(addBtn);
+        }
+
+        document.getElementById("day-view").hidden = false;
+      }
+
+      function closeDayView() {
+        document.getElementById("day-view").hidden = true;
       }
 
       function openForEditing(date) {
@@ -2410,6 +2551,14 @@ function updateMood(score) {
       document.querySelector(".tab-nav").addEventListener("click", e => {
         const btn = e.target.closest("[data-tab]");
         if (btn) switchTab(btn.dataset.tab);
+      });
+
+      // ── Day view dismiss ──
+      document.getElementById("day-view").addEventListener("click", e => {
+        if (!e.target.closest(".day-view-card")) closeDayView();
+      });
+      document.addEventListener("keydown", e => {
+        if (e.key === "Escape" && !document.getElementById("day-view").hidden) closeDayView();
       });
 
       // ── Sync drawer toggle ──
