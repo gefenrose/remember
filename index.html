@@ -1180,25 +1180,20 @@
           </div>
         </div>
 
-        <!-- Multi-device access -->
+        <!-- Google Drive backup -->
         <div class="sync-card" id="syncDeviceCard">
-          <p class="eyebrow" data-i18n="syncDevicesEyebrow">Use on another device</p>
-          <p class="sync-help" data-i18n="syncDevicesHelp">Open Keepsake on your other device and enter the code below to access the same journal.</p>
+          <p class="eyebrow" data-i18n="syncDevicesEyebrow">Google Drive backup</p>
+          <p class="sync-help" data-i18n="syncDevicesHelp">Sign in with Google to back up and sync your journal across devices.</p>
 
-          <p class="sync-label" data-i18n="syncYourCode">Your code</p>
-          <div class="sync-code-row">
-            <span class="cloud-id" id="cloudId">—</span>
-            <button class="cloud-btn" id="cloudCopyBtn" data-i18n="cloudCopyText">Copy code</button>
+          <div id="driveSignInArea">
+            <button class="cloud-btn" id="driveSignInBtn" data-i18n="driveSignIn">Sign in with Google</button>
           </div>
 
-          <div class="sync-or"><span data-i18n="syncOr">or connect to a code from another device</span></div>
-
-          <div class="sync-link-row">
-            <input type="text" id="syncCodeInput" class="sync-code-input"
-                   data-i18n-placeholder="syncCodeInputPlaceholder"
-                   placeholder="Paste the code here"
-                   autocomplete="off" spellcheck="false" />
-            <button class="cloud-btn" id="cloudLinkBtn" data-i18n="cloudLinkText">Connect</button>
+          <div id="driveUserArea" hidden>
+            <div class="sync-code-row" style="margin-bottom:0">
+              <span class="cloud-id" id="driveUserEmail">—</span>
+              <button class="cloud-btn cloud-btn-danger" id="driveSignOutBtn" data-i18n="driveSignOut">Sign out</button>
+            </div>
           </div>
         </div>
 
@@ -1384,7 +1379,7 @@
       </article>
     </template>
 
-    <!-- Shared i18n data, used by both the Firebase module and the main script -->
+    <!-- Shared i18n data -->
     <script>
       window.LANG_KEY = "keepsake-lang";
       window.STORAGE_KEY = "keepsake-slider-entries";
@@ -1495,16 +1490,15 @@
           enableAnonAuth: "Enable Anonymous Auth in Firebase console",
           addAuthorizedDomain: (domain) => `Add ${domain} to Firebase Auth > Settings > Authorized domains`,
           authFailedFallback: "Auth failed — check Firebase console",
-          localOnly: "Local only — no Firebase config",
+          localOnly: "Local only — sign in for backup",
           linkingMsg: "Linking…",
           langToggleLabel: "עברית",
           langToggleAriaLabel: "Switch to Hebrew",
-          settingUpCloud: "Setting up cloud…",
-          syncDevicesEyebrow: "Use on another device",
-          syncDevicesHelp: "Open Keepsake on your other device and enter the code below to access the same journal.",
-          syncYourCode: "Your code",
-          syncOr: "or connect to a code from another device",
-          syncCodeInputPlaceholder: "Paste the code here",
+          settingUpCloud: "Connecting to Google Drive…",
+          syncDevicesEyebrow: "Google Drive backup",
+          syncDevicesHelp: "Sign in with Google to back up and sync your journal across devices.",
+          driveSignIn: "Sign in with Google",
+          driveSignOut: "Sign out",
           syncDataEyebrow: "Your data",
           tabNavAriaLabel: "Main sections",
           tabToday: "Today",
@@ -1592,16 +1586,15 @@
           enableAnonAuth: "יש להפעיל התחברות אנונימית בקונסולת Firebase",
           addAuthorizedDomain: (domain) => `יש להוסיף ${domain} לרשימת הדומיינים המאושרים ב-Firebase Auth`,
           authFailedFallback: "ההתחברות נכשלה — יש לבדוק את קונסולת Firebase",
-          localOnly: "מקומי בלבד — אין הגדרת Firebase",
+          localOnly: "מקומי בלבד — כניסה לגיבוי",
           linkingMsg: "מקשר…",
           langToggleLabel: "English",
           langToggleAriaLabel: "החלפה לאנגלית",
-          settingUpCloud: "מגדיר חיבור לעננה…",
-          syncDevicesEyebrow: "שימוש במכשיר אחר",
-          syncDevicesHelp: "פתח/י את מזכרת במכשיר האחר והזן/י את הקוד שלמטה.",
-          syncYourCode: "הקוד שלך",
-          syncOr: "או התחבר/י לקוד ממכשיר אחר",
-          syncCodeInputPlaceholder: "הדבק/י את הקוד כאן",
+          settingUpCloud: "מתחבר ל-Google Drive…",
+          syncDevicesEyebrow: "גיבוי ב-Google Drive",
+          syncDevicesHelp: "התחבר/י עם Google לגיבוי וסנכרון היומן בין המכשירים שלך.",
+          driveSignIn: "כניסה עם Google",
+          driveSignOut: "התנתקות",
           syncDataEyebrow: "הנתונים שלך",
           tabNavAriaLabel: "ניווט ראשי",
           tabToday: "היום",
@@ -1657,209 +1650,11 @@
       };
     </script>
 
-    <!-- Firebase -->
-    <script type="module">
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-      import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
-      import { getDatabase, ref, set, get, onValue, off } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
-
-      // ── Firebase config — replace with your own project ──
-      const firebaseConfig = {
-        apiKey: "AIzaSyA5M98a8Bt2LKiTrbTU1g2DAeHJTDFcFQQ",
-        authDomain: "keepsake-e266e.firebaseapp.com",
-        databaseURL: "https://keepsake-e266e-default-rtdb.europe-west1.firebasedatabase.app",
-        projectId: "keepsake-e266e",
-        storageBucket: "keepsake-e266e.firebasestorage.app",
-        messagingSenderId: "47541654696",
-        appId: "1:47541654696:web:136f1c99c3af88e4fb1e9d",
-        measurementId: "G-30WSC0X00K"
-      };
-
-      let db, uid, entriesRef, remoteUnsubscribe;
-      const LINK_KEY = window.CLOUD_LINK_KEY;
-
-      const cloudDot    = document.getElementById("cloudDot");
-      const cloudStatus = document.getElementById("cloudStatus");
-      const cloudIdEl   = document.getElementById("cloudId");
-      const cloudCopyBtn = document.getElementById("cloudCopyBtn");
-      const cloudLinkBtn = document.getElementById("cloudLinkBtn");
-
-      // msgFn receives the active language and returns the status text —
-      // this lets us re-translate the current cloud status after a language switch.
-      function setCloudState(state, msgFn, id) {
-        window._lastCloudMsgFn = msgFn;
-        cloudDot.className = "cloud-dot " + state;
-        cloudStatus.textContent = msgFn(window.CURRENT_LANG);
-        if (id !== undefined) cloudIdEl.textContent = id || "—";
-      }
-      window._refreshCloudStatus = function () {
-        if (window._lastCloudMsgFn) cloudStatus.textContent = window._lastCloudMsgFn(window.CURRENT_LANG);
-      };
-
-      function getLinkedUid() {
-        return localStorage.getItem(LINK_KEY);
-      }
-
-      // Firebase stores arrays as objects with numeric keys — normalize either form
-      function toArray(val) {
-        if (!val) return [];
-        if (Array.isArray(val)) return val.filter(Boolean);
-        return Object.values(val).filter(Boolean);
-      }
-
-      function mergeEntries(local, remoteRaw) {
-        const remote = toArray(remoteRaw);
-        const localMap = new Map(local.map(e => [e.date, e]));
-        const map = new Map();
-        local.forEach(e => map.set(e.date, e));
-        remote.forEach(e => {
-          if (!e || !e.date) return;
-          const localEntry = localMap.get(e.date);
-          map.set(e.date, { chips: [], ...e, imageUrl: e.imageUrl || localEntry?.imageUrl || null });
-        });
-        return [...map.values()].sort((a, b) => b.date.localeCompare(a.date));
-      }
-
-      function setupRealtimeSync(database, userId) {
-        if (remoteUnsubscribe) { off(entriesRef); }
-        uid = userId;
-        entriesRef = ref(database, "users/" + uid + "/entries");
-        setCloudState("syncing", lang => window.STRINGS[lang].syncingMsg, uid);
-
-        get(entriesRef).then(snapshot => {
-          if (snapshot.exists()) {
-            const local  = window._getEntries();
-            const merged = mergeEntries(local, snapshot.val());
-            window._setEntries(merged);
-            window._renderEntries();
-          }
-          setCloudState("synced", lang => window.STRINGS[lang].syncedMsg, uid);
-        }).catch(err => setCloudState("error", lang => window.STRINGS[lang].syncFailed(err?.code || err?.message || err), uid));
-
-        window._pushToCloud = (entries) => {
-          // Store as object keyed by date — avoids Firebase array-to-object conversion issues
-          const payload = {};
-          entries.forEach(e => { payload[e.date] = e; });
-          setCloudState("syncing", lang => window.STRINGS[lang].savingMsg, uid);
-          set(entriesRef, payload)
-            .then(() => setCloudState("synced", lang => window.STRINGS[lang].savedMsg, uid))
-            .catch(err => setCloudState("error", lang => window.STRINGS[lang].saveFailed(err?.code || err?.message || err), uid));
-        };
-      }
-
-      try {
-        const app  = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        db = getDatabase(app);
-
-
-        const linked = getLinkedUid();
-
-        onAuthStateChanged(auth, async (user) => {
-          if (user) {
-            const effectiveUid = linked || user.uid;
-            // If the user chose to link to a different uid, use it
-            if (linked && linked !== user.uid) {
-              // Use linked uid as the data path (not auth uid, fine for RTDB rules)
-              setupRealtimeSync(db, linked);
-            } else {
-              localStorage.setItem(LINK_KEY, user.uid);
-              setupRealtimeSync(db, user.uid);
-            }
-          }
-        });
-
-        signInAnonymously(auth).catch((err) => {
-          const msgFn = err?.code === "auth/operation-not-allowed"
-            ? (lang => window.STRINGS[lang].enableAnonAuth)
-            : err?.code === "auth/unauthorized-domain"
-            ? (lang => window.STRINGS[lang].addAuthorizedDomain(location.hostname))
-            : (lang => err?.code || err?.message || window.STRINGS[lang].authFailedFallback);
-          setCloudState("error", msgFn, "");
-          window._pushToCloud = null;
-        });
-
-      } catch (e) {
-        // Firebase not configured — silently degrade to local-only
-        setCloudState("", lang => window.STRINGS[lang].localOnly, "");
-        const deviceCard = document.getElementById("syncDeviceCard");
-        if (deviceCard) deviceCard.hidden = true;
-        window._pushToCloud = null;
-      }
-
-      cloudCopyBtn.addEventListener("click", () => {
-        const id = localStorage.getItem(LINK_KEY);
-        if (!id) return;
-        navigator.clipboard.writeText(id).then(() => {
-          const S = window.STRINGS[window.CURRENT_LANG];
-          cloudCopyBtn.textContent = S.cloudCopyCopied;
-          setTimeout(() => cloudCopyBtn.textContent = window.STRINGS[window.CURRENT_LANG].cloudCopyText, 1800);
-        });
-      });
-
-      cloudLinkBtn.addEventListener("click", () => {
-        const inputEl = document.getElementById("syncCodeInput");
-        const raw = inputEl ? inputEl.value : "";
-        if (!raw || raw.trim().length < 10) return;
-        const trimmed = raw.trim();
-        if (inputEl) inputEl.value = "";
-        localStorage.setItem(LINK_KEY, trimmed);
-        setCloudState("syncing", lang => window.STRINGS[lang].linkingMsg, trimmed);
-        setupRealtimeSync(db, trimmed);
-      });
-
-      // Allow pressing Enter in the code input to trigger Connect
-      const syncCodeInput = document.getElementById("syncCodeInput");
-      if (syncCodeInput) {
-        syncCodeInput.addEventListener("keydown", e => {
-          if (e.key === "Enter") cloudLinkBtn.click();
-        });
-      }
-
-      document.getElementById("exportBtn").addEventListener("click", () => {
-        const lang = window.CURRENT_LANG;
-        const S = window.STRINGS[lang];
-        const entries = JSON.parse(localStorage.getItem(window.STORAGE_KEY) || "[]");
-        if (entries.length === 0) { alert(S.exportNoEntries); return; }
-
-        // Build CSV
-        const rows = [S.csvHeaders];
-        const moodNames = {};
-        window.MOODS[lang].forEach(m => { moodNames[m.score] = m.name; });
-        entries.forEach(e => {
-          rows.push([
-            e.date,
-            e.score,
-            moodNames[e.score] || e.score,
-            '"' + (e.memory || "").replace(/"/g, '""') + '"',
-            (e.chips || []).join(", "),
-            e.imageUrl ? S.yesLabel : S.noLabel
-          ]);
-        });
-        const csv = rows.map(r => r.join(",")).join("\n");
-        const blob = new Blob([csv], { type: "text/csv" });
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = "keepsake-" + new Date().toISOString().slice(0,10) + ".csv";
-        a.click();
-        URL.revokeObjectURL(a.href);
-      });
-
-      document.getElementById("deleteAllBtn").addEventListener("click", () => {
-        const S = window.STRINGS[window.CURRENT_LANG];
-        const count = JSON.parse(localStorage.getItem(window.STORAGE_KEY) || "[]").length;
-        if (count === 0) { alert(S.deleteNothing); return; }
-        const confirmed = confirm(S.deleteConfirm(count));
-        if (!confirmed) return;
-        localStorage.removeItem(window.STORAGE_KEY);
-        if (typeof window._pushToCloud === "function") window._pushToCloud([]);
-        window._renderEntries();
-      });
-    </script>
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <script>
-      // ── Language state — set immediately so any early calls (e.g. from the
-      // Firebase module) have a valid language to work with. ──
+      // ── Language state ──
       let CURRENT_LANG = localStorage.getItem(window.LANG_KEY)
         || ((navigator.language || "").toLowerCase().startsWith("he") ? "he" : "en");
       window.CURRENT_LANG = CURRENT_LANG;
@@ -1919,11 +1714,11 @@
       let statsOffset   = 0; // how many periods back from now
       let lastMoodScore = 4;
 
-      // Exposed so Firebase module can call them
+      // Exposed so the Drive backup module can call them
       window._getEntries  = getEntries;
       window._setEntries  = setEntries;
       window._renderEntries = renderEntries;
-      window._pushToCloud = null; // set by Firebase module when ready
+      window._pushToCloud = null; // set by Drive module when signed in
 
       function getEntries() {
         return JSON.parse(localStorage.getItem(storageKey) || "[]").map(e => ({ chips: [], ...e }));
@@ -2766,6 +2561,242 @@ function updateMood(score) {
       if ("serviceWorker" in navigator && window.location.protocol !== "file:") {
         navigator.serviceWorker.register("sw.js").catch(() => {});
       }
+    </script>
+
+    <!-- Google Drive Backup -->
+    <script>
+      (function () {
+        // ── Configuration ──
+        // To enable Drive backup:
+        // 1. Go to console.cloud.google.com → create a project
+        // 2. Enable Google Drive API and Google People API
+        // 3. Create OAuth 2.0 credentials (Web application type)
+        // 4. Add your site's origin to "Authorized JavaScript origins"
+        // 5. Replace the value below with your Client ID
+        const CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+        const SCOPES    = 'https://www.googleapis.com/auth/drive.appdata';
+        const FILE_NAME = 'keepsake-entries.json';
+        const FILE_KEY  = 'keepsake-drive-file-id';
+
+        const cloudDot        = document.getElementById('cloudDot');
+        const cloudStatus     = document.getElementById('cloudStatus');
+        const driveSignInBtn  = document.getElementById('driveSignInBtn');
+        const driveSignOutBtn = document.getElementById('driveSignOutBtn');
+        const driveUserEmail  = document.getElementById('driveUserEmail');
+        const driveSignInArea = document.getElementById('driveSignInArea');
+        const driveUserArea   = document.getElementById('driveUserArea');
+
+        let tokenClient = null;
+        let accessToken = null;
+        let fileId      = localStorage.getItem(FILE_KEY);
+
+        function setCloud(state, msgFn) {
+          window._lastCloudMsgFn = msgFn;
+          cloudDot.className = 'cloud-dot ' + state;
+          cloudStatus.textContent = msgFn(window.CURRENT_LANG);
+        }
+
+        window._refreshCloudStatus = function () {
+          if (window._lastCloudMsgFn) cloudStatus.textContent = window._lastCloudMsgFn(window.CURRENT_LANG);
+        };
+
+        function setDriveUI(signedIn, email) {
+          if (driveSignInArea) driveSignInArea.hidden = signedIn;
+          if (driveUserArea)   driveUserArea.hidden   = !signedIn;
+          if (driveUserEmail && email != null) driveUserEmail.textContent = email;
+        }
+
+        async function driveReq(url, opts) {
+          return fetch(url, {
+            ...opts,
+            headers: { Authorization: 'Bearer ' + accessToken, ...(opts && opts.headers || {}) },
+          });
+        }
+
+        async function ensureFile() {
+          if (fileId) return fileId;
+          const r = await driveReq(
+            'https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name%3D%27' +
+            encodeURIComponent(FILE_NAME) + '%27&fields=files(id)'
+          );
+          const d = await r.json();
+          if (d.files && d.files.length) {
+            fileId = d.files[0].id;
+          } else {
+            const cr = await driveReq('https://www.googleapis.com/drive/v3/files', {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body:    JSON.stringify({ name: FILE_NAME, parents: ['appDataFolder'] }),
+            });
+            fileId = (await cr.json()).id;
+          }
+          localStorage.setItem(FILE_KEY, fileId);
+          return fileId;
+        }
+
+        async function readDrive() {
+          const id = await ensureFile();
+          const r  = await driveReq('https://www.googleapis.com/drive/v3/files/' + id + '?alt=media');
+          if (r.status === 404) { localStorage.removeItem(FILE_KEY); fileId = null; return {}; }
+          const text = await r.text();
+          try { return text ? JSON.parse(text) : {}; } catch (e) { return {}; }
+        }
+
+        async function writeDrive(entries) {
+          const id  = await ensureFile();
+          const obj = {};
+          entries.forEach(function (e) { obj[e.date] = e; });
+          const body = JSON.stringify(obj);
+          const bd   = 'kp_bd';
+          const meta = JSON.stringify({ name: FILE_NAME });
+          const mp   = '--' + bd + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + meta +
+                       '\r\n--' + bd + '\r\nContent-Type: application/json\r\n\r\n' + body +
+                       '\r\n--' + bd + '--';
+          const r = await driveReq(
+            'https://www.googleapis.com/upload/drive/v3/files/' + id + '?uploadType=multipart',
+            { method: 'PATCH', headers: { 'Content-Type': 'multipart/related; boundary=' + bd }, body: mp }
+          );
+          if (!r.ok) throw new Error('Drive write failed: ' + r.status);
+        }
+
+        function toArr(val) {
+          if (!val) return [];
+          if (Array.isArray(val)) return val.filter(Boolean);
+          return Object.values(val).filter(Boolean);
+        }
+
+        function mergeEntries(local, raw) {
+          const remote   = toArr(raw);
+          const localMap = new Map(local.map(function (e) { return [e.date, e]; }));
+          const map      = new Map();
+          local.forEach(function (e) { map.set(e.date, e); });
+          remote.forEach(function (e) {
+            if (!e || !e.date) return;
+            const loc = localMap.get(e.date);
+            map.set(e.date, Object.assign({ chips: [] }, e, { imageUrl: e.imageUrl || (loc && loc.imageUrl) || null }));
+          });
+          return [...map.values()].sort(function (a, b) { return b.date.localeCompare(a.date); });
+        }
+
+        async function onToken(resp) {
+          if (resp.error) {
+            setDriveUI(false, null);
+            setCloud('', function (lang) { return window.STRINGS[lang].localOnly; });
+            return;
+          }
+          accessToken = resp.access_token;
+          setCloud('syncing', function (lang) { return window.STRINGS[lang].syncingMsg; });
+          try {
+            const uRes  = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+              headers: { Authorization: 'Bearer ' + accessToken },
+            });
+            const uInfo = uRes.ok ? await uRes.json() : {};
+            setDriveUI(true, uInfo.email || '');
+
+            const raw    = await readDrive();
+            const local  = window._getEntries();
+            const merged = mergeEntries(local, raw);
+            window._setEntries(merged);
+            window._renderEntries();
+            setCloud('synced', function (lang) { return window.STRINGS[lang].syncedMsg; });
+
+            window._pushToCloud = async function (entries) {
+              setCloud('syncing', function (lang) { return window.STRINGS[lang].savingMsg; });
+              try {
+                await writeDrive(entries);
+                setCloud('synced', function (lang) { return window.STRINGS[lang].savedMsg; });
+              } catch (err) {
+                setCloud('error', function (lang) { return window.STRINGS[lang].saveFailed(err && err.message || String(err)); });
+              }
+            };
+          } catch (err) {
+            setCloud('error', function (lang) { return window.STRINGS[lang].syncFailed(err && err.message || String(err)); });
+          }
+        }
+
+        function initGIS() {
+          if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) return;
+          if (tokenClient) return;
+          tokenClient = window.google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope:     SCOPES,
+            callback:  onToken,
+          });
+          tokenClient.requestAccessToken({ prompt: '' });
+        }
+
+        if (driveSignInBtn) {
+          driveSignInBtn.addEventListener('click', function () {
+            if (tokenClient) {
+              tokenClient.requestAccessToken({ prompt: 'select_account' });
+            } else {
+              initGIS();
+              if (tokenClient) tokenClient.requestAccessToken({ prompt: 'select_account' });
+            }
+          });
+        }
+
+        if (driveSignOutBtn) {
+          driveSignOutBtn.addEventListener('click', function () {
+            if (accessToken && window.google) window.google.accounts.oauth2.revoke(accessToken, function () {});
+            accessToken = null;
+            fileId      = null;
+            localStorage.removeItem(FILE_KEY);
+            window._pushToCloud = null;
+            setDriveUI(false, null);
+            setCloud('', function (lang) { return window.STRINGS[lang].localOnly; });
+          });
+        }
+
+        document.getElementById('exportBtn').addEventListener('click', function () {
+          const lang    = window.CURRENT_LANG;
+          const S       = window.STRINGS[lang];
+          const entries = JSON.parse(localStorage.getItem(window.STORAGE_KEY) || '[]');
+          if (!entries.length) { alert(S.exportNoEntries); return; }
+          const moodNames = {};
+          window.MOODS[lang].forEach(function (m) { moodNames[m.score] = m.name; });
+          const rows = [S.csvHeaders];
+          entries.forEach(function (e) {
+            rows.push([
+              e.date, e.score, moodNames[e.score] || e.score,
+              '"' + (e.memory || '').replace(/"/g, '""') + '"',
+              (e.chips || []).join(', '),
+              e.imageUrl ? S.yesLabel : S.noLabel,
+            ]);
+          });
+          const csv  = rows.map(function (r) { return r.join(','); }).join('\n');
+          const blob = new Blob([csv], { type: 'text/csv' });
+          const a    = document.createElement('a');
+          a.href     = URL.createObjectURL(blob);
+          a.download = 'keepsake-' + new Date().toISOString().slice(0, 10) + '.csv';
+          a.click();
+          URL.revokeObjectURL(a.href);
+        });
+
+        document.getElementById('deleteAllBtn').addEventListener('click', function () {
+          const S     = window.STRINGS[window.CURRENT_LANG];
+          const count = JSON.parse(localStorage.getItem(window.STORAGE_KEY) || '[]').length;
+          if (!count) { alert(S.deleteNothing); return; }
+          if (!confirm(S.deleteConfirm(count))) return;
+          localStorage.removeItem(window.STORAGE_KEY);
+          if (typeof window._pushToCloud === 'function') window._pushToCloud([]);
+          window._renderEntries();
+        });
+
+        if (CLIENT_ID && CLIENT_ID.indexOf('YOUR_GOOGLE') === -1) {
+          setCloud('', function (lang) { return window.STRINGS[lang].settingUpCloud; });
+          if (window.google && window.google.accounts) {
+            initGIS();
+          } else {
+            const gisScript = document.querySelector('script[src*="accounts.google.com/gsi"]');
+            if (gisScript) gisScript.addEventListener('load', initGIS);
+            setTimeout(initGIS, 2000);
+          }
+        } else {
+          setCloud('', function (lang) { return window.STRINGS[lang].localOnly; });
+          window._pushToCloud = null;
+        }
+      })();
     </script>
   </body>
 </html>
